@@ -97,9 +97,12 @@ pub fn add_projects(db: State<'_, Db>, paths: Vec<String>) -> Result<Vec<Project
             git_initialized: detection.has_git,
             git_remote: None,
         };
-        // A path already on the board is a no-op, not a failure.
-        if let Ok(id) = db::insert_project(&conn, record) {
-            added.push(db::get_project(&conn, id)?);
+        // A path already on the board is a no-op. Anything else is a genuine
+        // failure and must not be swallowed just because this is a bulk call.
+        match db::insert_project(&conn, record) {
+            Ok(id) => added.push(db::get_project(&conn, id)?),
+            Err(e) if e.code == Code::AlreadyExists => continue,
+            Err(e) => return Err(e),
         }
     }
     Ok(added)

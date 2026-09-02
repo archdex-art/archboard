@@ -241,9 +241,19 @@ pub fn readme_preview(dir: &Path, limit: usize) -> Option<String> {
 mod tests {
     use super::*;
 
+    /// A unique scratch directory. Tests run in parallel and the clock is not
+    /// a unique identifier: two calls in the same nanosecond would otherwise
+    /// share a directory and read each other's manifests.
     fn scratch(files: &[(&str, &str)]) -> std::path::PathBuf {
-        let dir = std::env::temp_dir()
-            .join(format!("archboard-detect-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static SEQ: AtomicU32 = AtomicU32::new(0);
+
+        let dir = std::env::temp_dir().join(format!(
+            "archboard-detect-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::remove_dir_all(&dir).ok();
         std::fs::create_dir_all(&dir).unwrap();
         for (name, body) in files {
             std::fs::write(dir.join(name), body).unwrap();
@@ -279,6 +289,22 @@ mod tests {
         assert_eq!(d.language.as_deref(), Some("Rust"));
         assert_eq!(d.framework.as_deref(), Some("Tauri"));
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn does_not_mistake_neighbouring_dependency_names_for_a_framework() {
+        // The needles are quoted precisely so that "preact" and "react-native"
+        // cannot be read as "react".
+        let preact = scratch(&[("package.json", r#"{"dependencies":{"preact":"10.0.0"}}"#)]);
+        assert_eq!(detect(&preact).framework, None);
+        std::fs::remove_dir_all(&preact).ok();
+
+        let native = scratch(&[(
+            "package.json",
+            r#"{"dependencies":{"react-native":"0.76.0","react":"19.0.0"}}"#,
+        )]);
+        assert_eq!(detect(&native).framework.as_deref(), Some("React Native"));
+        std::fs::remove_dir_all(&native).ok();
     }
 
     #[test]

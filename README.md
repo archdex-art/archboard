@@ -30,23 +30,38 @@ Human labels are set in IBM Plex Sans; machine truth — paths, branch names, ha
 ```bash
 bun install
 bun run tauri dev      # development
-bun run check          # typecheck + 33 frontend tests
-bun run tauri build    # Archboard.app and a .dmg
+bun run check          # typecheck + 36 frontend tests
+bun run dmg            # Archboard.app and a styled .dmg
 ```
 
-Requires Rust, Bun, and a local `git`. Backend tests: `cargo test --manifest-path src-tauri/Cargo.toml` (9 tests covering the porcelain parser, remote URLs, stack detection and the discovery walk).
+Requires Rust, Bun, and a local `git`. Backend tests: `cargo test --manifest-path src-tauri/Cargo.toml` (11 tests covering the porcelain parser, remote URLs, stack detection and the discovery walk).
+
+`bun run dmg` rather than `tauri build` because Tauri skips the DMG's Finder styling whenever `CI=true`, and it exports `APPLE_SIGNING_IDENTITY=-` for the ad-hoc signature that Apple Silicon requires in order to run a binary at all.
 
 ## Installing a build
 
-Builds are currently **ad-hoc signed and not notarized**, because there is no Apple Developer ID attached to this project yet. macOS will refuse to open the app the first time:
+Builds are **ad-hoc signed and not notarized** — there is no Apple Developer ID on this project. macOS will refuse to open the app the first time.
+
+The fastest way through, and what the installer window tells you:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Archboard.app
 ```
 
-…or right-click the app and choose **Open**. To sign properly, set `APPLE_SIGNING_IDENTITY`, `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` and `APPLE_TEAM_ID` — locally as environment variables, or as repository secrets, where [`.github/workflows/release.yml`](.github/workflows/release.yml) already reads them.
+If you would rather not use the terminal, macOS 15 and later require this exact sequence — **the old right-click → Open shortcut no longer works**:
+
+1. Drag Archboard to Applications and double-click it.
+2. macOS blocks it. Click **Done**.
+3. Open **System Settings › Privacy & Security**, scroll to **Security**.
+4. Next to *"Archboard was blocked…"*, click **Open Anyway** and authenticate.
+
+Copy the app into `/Applications` before launching it. Running it from the mounted disk image triggers App Translocation, which puts it at a randomised read-only path.
+
+To sign properly, set `APPLE_SIGNING_IDENTITY`, `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` and `APPLE_TEAM_ID` — locally as environment variables, or as repository secrets, where [`.github/workflows/release.yml`](.github/workflows/release.yml) already reads them.
 
 Tag a release with `git tag v0.1.0 && git push --tags`; the workflow builds a universal binary and opens a draft release with the `.dmg` attached.
+
+> Homebrew is not an option. As of 1 September 2026 the `homebrew/cask` tap requires every cask to pass Gatekeeper, and `--no-quarantine` was removed in Homebrew 5.0.0.
 
 ## Architecture
 

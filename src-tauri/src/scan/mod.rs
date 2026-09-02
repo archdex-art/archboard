@@ -20,6 +20,10 @@ const SKIP: &[&str] = &[
     ".next", ".nuxt", ".svelte-kit", ".turbo", ".cache", ".gradle", ".idea", ".vscode",
     "Library", "Applications", ".Trash", ".git", ".bundle", "bower_components",
     "Carthage", ".terraform", ".stack-work", "obj", "bin", "coverage",
+    // Hidden toolchain and cache directories, which are now reachable because
+    // hidden directories are allowed at the top of a scan root.
+    ".cargo", ".rustup", ".npm", ".bun", ".nvm", ".pnpm-store", ".yarn", ".gem",
+    ".docker", ".android", ".gradle-cache", ".m2", ".sdkman", ".vscode-server",
 ];
 
 #[derive(Debug, Clone, Serialize)]
@@ -46,9 +50,14 @@ pub struct Progress {
 
 fn skipped(entry: &DirEntry) -> bool {
     let name = entry.file_name().to_string_lossy();
-    SKIP.contains(&name.as_ref())
-        // Hidden directories other than the ones we explicitly want are noise.
-        || (name.starts_with('.') && name != "." && entry.depth() > 0)
+    if SKIP.contains(&name.as_ref()) {
+        return true;
+    }
+    // Hidden directories are noise almost everywhere, but a dotfiles
+    // repository sits at the top of a scan root and is a real project. Allow
+    // them at depth 1 only, so `~/Projects/.dotfiles` is found while
+    // `~/Projects/thing/.hidden/cache` is not walked.
+    name.starts_with('.') && entry.depth() > 1
 }
 
 /// Walks every enabled root, reporting progress through `on_progress`.
@@ -132,6 +141,19 @@ where
 mod tests {
     use super::*;
 
+    /// Unique per call: parallel tests must not share a tree.
+    fn scratch_root() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static SEQ: AtomicU32 = AtomicU32::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "archboard-scan-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::remove_dir_all(&root).ok();
+        root
+    }
+
     fn touch(path: std::path::PathBuf) {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, "{}").unwrap();
@@ -139,10 +161,7 @@ mod tests {
 
     #[test]
     fn finds_projects_without_descending_into_them() {
-        let root = std::env::temp_dir().join(format!(
-            "archboard-scan-{}",
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
-        ));
+        let root = scratch_root();
         // A repository, with a nested package that must NOT be reported
         // separately, and a dependency directory that must never be entered.
         touch(root.join("web/package.json"));
@@ -167,11 +186,27 @@ mod tests {
     }
 
     #[test]
+    fn finds_a_dotfiles_repo_at_the_top_of_a_root_but_not_hidden_dirs_below() {
+        let root = scratch_root();
+        // A dotfiles repository is a real project and lives at the top level.
+        touch(root.join(".dotfiles/Makefile"));
+        std::fs::create_dir_all(root.join(".dotfiles/.git")).unwrap();
+        // A hidden directory nested inside another project is noise.
+        touch(root.join("app/go.mod"));
+        touch(root.join("app/.hidden/package.json"));
+        // Toolchain caches stay out even at the top level.
+        touch(root.join(".cargo/Cargo.toml"));
+
+        let found = scan(&[(root.to_string_lossy().into_owned(), 3)], &[], |_| {});
+        let names: Vec<&str> = found.iter().map(|c| c.name.as_str()).collect();
+
+        assert_eq!(names, vec![".dotfiles", "app"]);
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
     fn marks_paths_already_on_the_board() {
-        let root = std::env::temp_dir().join(format!(
-            "archboard-scan-dup-{}",
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
-        ));
+        let root = scratch_root();
         touch(root.join("api/Cargo.toml"));
         let existing = vec![root.join("api").to_string_lossy().into_owned()];
 

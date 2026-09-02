@@ -1,9 +1,16 @@
 import * as Primitive from "@radix-ui/react-dialog";
+import fuzzysort from "fuzzysort";
 import { CornerDownLeft, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BranchBadge, ChangeBadge } from "@/components/GitBadge";
 import { useActions } from "@/features/projects/useActions";
+import {
+  SEARCH_KEYS,
+  SEARCH_THRESHOLD,
+  searchable,
+  weighQuery,
+} from "@/features/projects/ranking";
 import { cn, tildePath } from "@/lib/format";
 import { useApp } from "@/stores/app";
 import type { GitStatus, Project } from "@/types";
@@ -49,25 +56,31 @@ export function CommandPalette({
     }
   }, [open]);
 
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim();
+  const lowered = needle.toLowerCase();
 
   const matches = useMemo(() => {
-    const scored = projects
-      .filter(
-        (p) =>
-          !needle ||
-          p.name.toLowerCase().includes(needle) ||
-          p.path.toLowerCase().includes(needle) ||
-          p.tags.some((t) => t.toLowerCase().includes(needle)),
-      )
-      .sort((a, b) => {
-        // Prefix hits first, then whatever was opened most recently.
-        const aPrefix = a.name.toLowerCase().startsWith(needle) ? 0 : 1;
-        const bPrefix = b.name.toLowerCase().startsWith(needle) ? 0 : 1;
-        return aPrefix - bPrefix || (b.lastOpened ?? 0) - (a.lastOpened ?? 0);
-      });
-    return scored.slice(0, 40);
-  }, [projects, needle]);
+    const rows = projects.map((p) => searchable(p, git[p.id]));
+    if (!needle) {
+      // No query: the palette is a recency list.
+      return rows
+        .sort((a, b) => (b.project.lastOpened ?? 0) - (a.project.lastOpened ?? 0))
+        .slice(0, 40)
+        .map((row) => ({ project: row.project, nameHits: null as readonly number[] | null }));
+    }
+    return fuzzysort
+      .go(needle, rows, {
+        keys: SEARCH_KEYS as unknown as string[],
+        threshold: SEARCH_THRESHOLD,
+        limit: 40,
+        scoreFn: (result) => weighQuery(result) * (result.obj.project.isFavorite ? 1.08 : 1),
+      })
+      .map((result) => ({
+        project: result.obj.project,
+        // Index 0 is `name`; its matched characters get emphasised.
+        nameHits: (result[0]?.indexes as readonly number[] | undefined) ?? null,
+      }));
+  }, [projects, git, needle]);
 
   const commands = useMemo<Command[]>(() => {
     const all: Command[] = [
@@ -75,12 +88,12 @@ export function CommandPalette({
       { id: "scan", label: "Find projects on this Mac…", run: onScan },
       { id: "settings", label: "Open settings", hint: "⌘,", run: onSettings },
     ];
-    return needle ? all.filter((c) => c.label.toLowerCase().includes(needle)) : all;
-  }, [needle, onAdd, onScan, onSettings]);
+    return lowered ? all.filter((c) => c.label.toLowerCase().includes(lowered)) : all;
+  }, [lowered, onAdd, onScan, onSettings]);
 
   const rows = useMemo(
     () => [
-      ...matches.map((project) => ({ kind: "project" as const, project })),
+      ...matches.map((match) => ({ kind: "project" as const, ...match })),
       ...commands.map((command) => ({ kind: "command" as const, command })),
     ],
     [matches, commands],
@@ -159,7 +172,11 @@ export function CommandPalette({
                   )}
                 >
                   {row.kind === "project" ? (
-                    <ProjectRowLine project={row.project} status={git[row.project.id]} />
+                    <ProjectRowLine
+                      project={row.project}
+                      status={git[row.project.id]}
+                      nameHits={row.nameHits}
+                    />
                   ) : (
                     <>
                       <span className="flex-1 truncate text-[13px] text-ink-dim">
@@ -189,16 +206,39 @@ export function CommandPalette({
   );
 }
 
+/** Emphasises the characters the query actually matched. */
+function Highlighted({ text, hits }: { text: string; hits: readonly number[] | null }) {
+  if (!hits || hits.length === 0) return <>{text}</>;
+  const marked = new Set(hits);
+  return (
+    <>
+      {Array.from(text, (char, i) =>
+        marked.has(i) ? (
+          <mark key={i} className="bg-transparent font-semibold text-ink">
+            {char}
+          </mark>
+        ) : (
+          <span key={i}>{char}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function ProjectRowLine({
   project,
   status,
+  nameHits,
 }: {
   project: Project;
   status?: GitStatus;
+  nameHits: readonly number[] | null;
 }) {
   return (
     <>
-      <span className="truncate text-[13px] font-medium">{project.name}</span>
+      <span className="truncate text-[13px] font-medium text-ink-dim">
+        <Highlighted text={project.name} hits={nameHits} />
+      </span>
       <span className="mono flex-1 truncate text-[11px] text-ink-faint">
         {tildePath(project.path)}
       </span>

@@ -159,11 +159,19 @@ export const useApp = create<AppState>((set, get) => ({
 
   dropProject(id) {
     set((s) => {
+      // Every per-project map has to forget it, or re-adding the same folder
+      // inherits the old error and a refresh that will never complete.
       const git = { ...s.git };
+      const gitErrors = { ...s.gitErrors };
       delete git[id];
+      delete gitErrors[id];
+      const refreshing = new Set(s.refreshing);
+      refreshing.delete(id);
       return {
         projects: s.projects.filter((p) => p.id !== id),
         git,
+        gitErrors,
+        refreshing,
         selectedId: s.selectedId === id ? null : s.selectedId,
       };
     });

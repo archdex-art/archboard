@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="420" viewBox="0 0 660 420">
+  <!--
+    The installer window. Same rule as the app: graphite everywhere, one amber
+    accent, and the accent is doing a job — here it points at Applications.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15181D"/>
+      <stop offset="1" stop-color="#0C0E12"/>
+    </linearGradient>
+    <marker id="head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="#F0B429"/>
+    </marker>
+  </defs>
+
+  <rect width="660" height="420" fill="url(#bg)"/>
+
+  <text x="330" y="62" text-anchor="middle" fill="#E9EBF0"
+        font-family="IBM Plex Sans, Helvetica Neue, sans-serif" font-size="19" font-weight="600"
+        letter-spacing="-0.2">Install Archboard</text>
+  <text x="330" y="86" text-anchor="middle" fill="#8A92A4"
+        font-family="IBM Plex Sans, Helvetica Neue, sans-serif" font-size="13">
+    Drag the app into your Applications folder
+  </text>
+
+
+  <!-- The bundler places both icons centred on y=190; the arrow joins them. -->
+  <path d="M266,186 L384,186" stroke="#F0B429" stroke-width="2.5"
+        fill="none" stroke-linecap="round" marker-end="url(#head)" opacity="0.95"/>
+
+  <!-- First-run instructions, because this build is not notarized. -->
+  <g transform="translate(80,318)">
+    <rect x="0" y="0" width="500" height="66" rx="9" fill="#1A1E25" stroke="#2E333D"/>
+    <text x="18" y="26" fill="#8A92A4"
+          font-family="IBM Plex Sans, Helvetica Neue, sans-serif" font-size="12">
+      First launch is blocked by macOS. Afterwards, run this once in Terminal:
+    </text>
+    <text x="18" y="48" fill="#F0B429"
+          font-family="JetBrains Mono, SF Mono, Menlo, monospace" font-size="11.5">
+      xattr -dr com.apple.quarantine /Applications/Archboard.app
+    </text>
+  </g>
+</svg>

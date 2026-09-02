@@ -40,6 +40,9 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tauri skips the DMG's Finder styling whenever CI=true. The runner
+          # has a GUI session, so opt back in and keep the installer layout.
+          TAURI_BUNDLER_DMG_IGNORE_CI: "true"
           # Ad-hoc signing until a Developer ID certificate exists. Add
           # APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
           # APPLE_ID, APPLE_PASSWORD and APPLE_TEAM_ID as repository secrets and

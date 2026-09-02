@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
-import { compare, frecency, matches, passesFilter } from "@/features/projects/ranking";
+import fuzzysort from "fuzzysort";
+
+import {
+  SEARCH_KEYS,
+  SEARCH_THRESHOLD,
+  compare,
+  frecency,
+  passesFilter,
+  searchable,
+  weighQuery,
+} from "@/features/projects/ranking";
 import type { GitStatus, Project } from "@/types";
 
 const HOUR = 3600;
@@ -65,37 +75,109 @@ describe("frecency", () => {
   });
 });
 
+/** Runs a query the way the dashboard and the palette both do. */
+function search(query: string, rows: { project: Project; status?: GitStatus }[]) {
+  const targets = rows.map((r) => searchable(r.project, r.status));
+  return fuzzysort
+    .go(query, targets, {
+      keys: SEARCH_KEYS as unknown as string[],
+      threshold: SEARCH_THRESHOLD,
+      limit: 0,
+      scoreFn: (result) => weighQuery(result) * (result.obj.project.isFavorite ? 1.08 : 1),
+    })
+    .map((result) => result.obj.project.name);
+}
+
 describe("search", () => {
-  const p = project({ tags: ["work"], path: "/Users/dev/Projects/ai-assistant" });
-  const s = status({ branch: "feature/login", remote: {
+  const remote = {
     raw: "git@github.com:acme/ai-assistant.git",
     host: "github.com",
     service: "GitHub",
     owner: "acme",
     repo: "ai-assistant",
     webUrl: "https://github.com/acme/ai-assistant",
-  } });
+  };
+  const rows = [
+    {
+      project: project({ id: 1, name: "AI Assistant", tags: ["work"] }),
+      status: status({ branch: "feature/login", remote }),
+    },
+    {
+      project: project({
+        id: 2,
+        name: "Portfolio",
+        path: "/Users/dev/Projects/portfolio",
+        language: "JavaScript",
+        framework: "Astro",
+        packageManager: "bun",
+      }),
+      status: status({ branch: "main" }),
+    },
+    {
+      project: project({
+        id: 3,
+        name: "Telemetry API",
+        path: "/Users/dev/work/telemetry-api",
+        language: "Python",
+        framework: "FastAPI",
+        packageManager: "uv",
+      }),
+    },
+  ];
+
+  test("finds a project from a subsequence, which substring search could not", () => {
+    // The whole point of the upgrade: none of these are substrings of the name.
+    expect(search("aiast", rows)).toContain("AI Assistant");
+    expect(search("tlmtry", rows)).toContain("Telemetry API");
+    expect(search("prtfl", rows)).toContain("Portfolio");
+  });
 
   test.each([
-    ["name", "assist"],
-    ["path segment", "projects/ai"],
-    ["language", "typescript"],
-    ["framework", "next"],
-    ["branch", "feature/log"],
-    ["remote owner", "acme"],
-    ["remote host", "github.com"],
-    ["tag", "work"],
-  ])("matches on %s", (_label, needle) => {
-    expect(matches(p, s, needle)).toBe(true);
+    ["exact name", "Portfolio", "Portfolio"],
+    ["path segment", "telemetry-api", "Telemetry API"],
+    ["language", "python", "Telemetry API"],
+    ["framework", "astro", "Portfolio"],
+    ["branch", "feature/login", "AI Assistant"],
+    ["remote owner", "acme", "AI Assistant"],
+    ["service", "github", "AI Assistant"],
+    ["tag", "work", "AI Assistant"],
+  ])("matches on %s", (_label, query, expected) => {
+    expect(search(query, rows)[0]).toBe(expected);
   });
 
-  test("does not match unrelated text", () => {
-    expect(matches(p, s, "kubernetes")).toBe(false);
+  test("a hit in the name outranks the same text appearing in a path", () => {
+    const byName = project({ id: 10, name: "beacon", path: "/Users/dev/Projects/beacon" });
+    const byPath = project({ id: 11, name: "Widgets", path: "/Users/dev/beacon-tools/widgets" });
+    const ranked = search("beacon", [{ project: byPath }, { project: byName }]);
+    expect(ranked[0]).toBe("beacon");
   });
 
-  test("searchable fields still work when git has not loaded yet", () => {
-    expect(matches(p, undefined, "assist")).toBe(true);
-    expect(matches(p, undefined, "feature/log")).toBe(false);
+  test("a favorite edges out an equally good match", () => {
+    const plain = project({ id: 20, name: "runner", path: "/a/runner" });
+    const starred = project({ id: 21, name: "runner", path: "/b/runner", isFavorite: true });
+    expect(search("runner", [{ project: plain }, { project: starred }])[0]).toBe("runner");
+    const ranked = fuzzysort.go(
+      "runner",
+      [searchable(plain, undefined), searchable(starred, undefined)],
+      {
+        keys: SEARCH_KEYS as unknown as string[],
+        threshold: SEARCH_THRESHOLD,
+        limit: 0,
+        scoreFn: (r) => weighQuery(r) * (r.obj.project.isFavorite ? 1.08 : 1),
+      },
+    );
+    expect(ranked[0].obj.project.isFavorite).toBe(true);
+  });
+
+  test("nonsense matches nothing rather than everything", () => {
+    expect(search("kubernetes", rows)).toEqual([]);
+    expect(search("zzzzzzzz", rows)).toEqual([]);
+  });
+
+  test("searchable fields degrade gracefully before git has loaded", () => {
+    const rowsWithoutGit = rows.map((r) => ({ project: r.project }));
+    expect(search("assistant", rowsWithoutGit)).toContain("AI Assistant");
+    expect(search("feature/login", rowsWithoutGit)).toEqual([]);
   });
 });
 

@@ -13,12 +13,32 @@ use db::Db;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            // Remembers size and position across launches. The window is
+            // created hidden so it never flashes at the default geometry, and
+            // we show it ourselves below once the state has been restored.
+            //
+            // VISIBLE is deliberately excluded: the plugin would otherwise
+            // persist "hidden" and, if the app ever died before the window was
+            // shown, restore it hidden forever with no way back.
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all()
+                        - tauri_plugin_window_state::StateFlags::VISIBLE,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             let db = Db::open(&dir.join("archboard.db"))?;
             app.manage(db);
+
+            if let Some(window) = app.get_webview_window("main") {
+                window.show()?;
+                window.set_focus()?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

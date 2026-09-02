@@ -22,21 +22,81 @@ export function frecency(project: Project) {
   return (1 + Math.log2(1 + project.openCount)) * decay;
 }
 
-export function matches(project: Project, status: GitStatus | undefined, needle: string) {
-  const haystack = [
-    project.name,
-    project.path,
-    project.language,
-    project.framework,
-    project.packageManager,
-    status?.branch,
-    status?.remote?.host,
-    status?.remote?.owner,
-    status?.remote?.repo,
-    project.gitRemote,
-    ...project.tags,
-  ];
-  return haystack.some((value) => value?.toLowerCase().includes(needle));
+/**
+ * Fields a query can hit, and how much a hit is worth.
+ *
+ * A launcher lives or dies on this ordering: typing `api` must surface the
+ * project *called* api before every project whose path merely contains it.
+ * Weights multiply fuzzysort's 0..1 score, and the best single field wins
+ * rather than the sum, so one strong hit beats several weak ones.
+ */
+const FIELDS = [
+  { key: "name", weight: 1 },
+  { key: "tagText", weight: 0.9 },
+  { key: "folder", weight: 0.85 },
+  { key: "path", weight: 0.7 },
+  { key: "framework", weight: 0.65 },
+  { key: "language", weight: 0.6 },
+  { key: "packageManager", weight: 0.55 },
+  { key: "branch", weight: 0.5 },
+  { key: "remote", weight: 0.45 },
+] as const;
+
+export const SEARCH_KEYS = FIELDS.map((f) => f.key);
+const WEIGHTS = FIELDS.map((f) => f.weight);
+
+/**
+ * How loose an abbreviation may be. Measured, not guessed: contiguous matches
+ * score 0.75-0.95, while heavy abbreviations like `aiast` -> "AI Assistant"
+ * land around 0.30. Non-subsequences score nothing at all, so a low threshold
+ * admits abbreviations without admitting noise.
+ */
+export const SEARCH_THRESHOLD = 0.2;
+
+/** The flattened, searchable view of a project. */
+export interface Searchable {
+  project: Project;
+  name: string;
+  /** Last path segment: people search for the folder, not the whole path. */
+  folder: string;
+  path: string;
+  language: string;
+  framework: string;
+  packageManager: string;
+  branch: string;
+  remote: string;
+  tagText: string;
+}
+
+export function searchable(project: Project, status: GitStatus | undefined): Searchable {
+  const remote = status?.remote;
+  return {
+    project,
+    name: project.name,
+    folder: project.path.slice(project.path.lastIndexOf("/") + 1),
+    path: project.path,
+    language: project.language ?? "",
+    framework: project.framework ?? "",
+    packageManager: project.packageManager ?? "",
+    branch: status?.branch ?? "",
+    remote: remote
+      ? [remote.service, remote.host, remote.owner, remote.repo].filter(Boolean).join(" ")
+      : (project.gitRemote ?? ""),
+    tagText: project.tags.join(" "),
+  };
+}
+
+/**
+ * Combines fuzzysort's per-field results into one score. `results` is indexed
+ * in the same order as `SEARCH_KEYS`; a field that did not match is `null`.
+ */
+export function weighQuery(results: ReadonlyArray<{ score: number } | null>) {
+  let best = 0;
+  for (let i = 0; i < results.length; i += 1) {
+    const score = results[i]?.score ?? 0;
+    if (score > 0) best = Math.max(best, score * WEIGHTS[i]);
+  }
+  return best;
 }
 
 export function passesFilter(project: Project, status: GitStatus | undefined, filter: FilterId) {
