@@ -15,7 +15,7 @@ Built with Tauri v2, Rust, React, TypeScript, Tailwind, and SQLite.
 - **Project detection** — language, framework, and package manager from the top-level manifest. 23 markers, no recursion, nothing executed.
 - **Discovery** — point it at `~/Projects` and it finds the repositories, then asks before adding any of them.
 - **Always one keystroke away** — `⌥K` from any application summons Archboard; press it again to dismiss. It also lives in the menu bar, and can drop out of the Dock entirely.
-- **Keyboard-first** — `⌘K` palette, `⌘N` add, `⌘T` terminal, `⌘I` editor, `⌘R` refresh, `↑↓`/`j k` to move, `↵` to open.
+- **Keyboard-first, and rebindable** — `⌘K` palette, `⌘N` add, `⌘T` terminal, `⌘I` editor, `⌘R` refresh, `↑↓`/`j k` to move, `↵` to open. Every command above can be re-recorded in Settings › Shortcuts; only the navigation keys are fixed.
 - Favorites, tags, notes, per-project default editor, frecency sorting.
 
 ### The global shortcut

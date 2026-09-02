@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/controls";
 import { Menu, MenuCheckItem, MenuContent, MenuLabel, MenuTrigger } from "@/components/ui/menu";
+import { useBindings, useShortcuts } from "@/features/shortcuts/useShortcuts";
+import { pretty } from "@/lib/accelerator";
 import { useApp, type SortMode } from "@/stores/app";
 
 const SORTS: [SortMode, string][] = [
@@ -29,6 +31,7 @@ export function TopBar({
   const view = useApp((s) => s.view);
   const setView = useApp((s) => s.setView);
 
+  const bindings = useBindings();
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(query);
 
@@ -44,17 +47,12 @@ export function TopBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useShortcuts({
+    find: () => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    },
+  });
 
   return (
     <header className="drag-region flex h-[46px] shrink-0 items-center gap-2 border-b border-line bg-canvas pl-[84px] pr-3">
@@ -74,7 +72,7 @@ export function TopBar({
           className="h-7 w-full rounded-[7px] border border-line bg-panel pl-8 pr-14 text-[12.5px] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-line-strong focus:bg-raised"
         />
         <kbd className="mono pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10.5px] text-ink-faint">
-          ⌘K
+          {pretty(bindings.palette)}
         </kbd>
       </div>
 
@@ -113,7 +111,7 @@ export function TopBar({
           </Button>
         </Tooltip>
 
-        <Tooltip label="Settings" shortcut="⌘,">
+        <Tooltip label="Settings" shortcut={pretty(bindings.settings)}>
           <Button variant="ghost" size="icon" className="no-drag" aria-label="Settings" onClick={onSettings}>
             <Settings2 className="h-3.5 w-3.5" />
           </Button>

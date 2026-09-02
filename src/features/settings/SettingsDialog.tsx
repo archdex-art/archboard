@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, Switch } from "@/components/ui/controls";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
-import {
-  ShortcutRecorder,
-  prettyAccelerator,
-} from "@/features/settings/ShortcutRecorder";
+import { ShortcutRecorder } from "@/features/settings/ShortcutRecorder";
+import { ShortcutsPanel } from "@/features/settings/ShortcutsPanel";
+import { pretty as prettyAccelerator } from "@/lib/accelerator";
 import { cn, tildePath } from "@/lib/format";
 import { api } from "@/lib/ipc";
 import { useApp, type SettingsTab } from "@/stores/app";
@@ -338,6 +337,7 @@ const DEFAULT_SHORTCUT = "Alt+K";
 
 const TABS: [SettingsTab, string][] = [
   ["general", "General"],
+  ["shortcuts", "Shortcuts"],
   ["ides", "Editors"],
   ["terminals", "Terminals"],
   ["folders", "Folders"],
@@ -475,6 +475,9 @@ export function SettingsDialog({
             </Row>
           </Tabs.Content>
 
+          <Tabs.Content value="shortcuts">
+            <ShortcutsPanel />
+          </Tabs.Content>
           <Tabs.Content value="ides">
             <LauncherList kind="ide" />
           </Tabs.Content>

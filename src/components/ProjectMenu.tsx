@@ -11,6 +11,8 @@ import {
 
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { useActions } from "@/features/projects/useActions";
+import { useBindings } from "@/features/shortcuts/useShortcuts";
+import { pretty } from "@/lib/accelerator";
 import { useApp } from "@/stores/app";
 import type { GitStatus, Project } from "@/types";
 
@@ -32,6 +34,7 @@ export function ProjectMenu({
 }) {
   const launchers = useApp((s) => s.launchers);
   const actions = useActions();
+  const bindings = useBindings();
 
   const ides = launchers.filter((l) => l.kind === "ide" && l.enabled);
   const terminals = launchers.filter((l) => l.kind === "terminal" && l.enabled);
@@ -108,7 +111,7 @@ export function ProjectMenu({
         </MenuItem>
         <MenuItem
           icon={<RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />}
-          shortcut="⌘R"
+          shortcut={pretty(bindings.refresh)}
           onSelect={() => void actions.refresh(project)}
         >
           Refresh git status

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/controls";
 import { useActions } from "@/features/projects/useActions";
 import { useApp } from "@/stores/app";
+import { useBindings } from "@/features/shortcuts/useShortcuts";
+import { pretty } from "@/lib/accelerator";
 import { ago, cn, stateOf, tildePath } from "@/lib/format";
 import type { RowProps } from "@/components/ProjectRow";
 
@@ -22,6 +24,7 @@ function CardImpl({
 }: RowProps) {
   const ref = useRef<HTMLDivElement>(null);
   const actions = useActions();
+  const bindings = useBindings();
   const launchers = useApp((s) => s.launchers);
   const defaultIde =
     launchers.find((l) => l.kind === "ide" && l.enabled && l.id === project.defaultIdeId) ??
@@ -127,7 +130,7 @@ function CardImpl({
         >
           Open {defaultIde?.name ?? "IDE"}
         </Button>
-        <Tooltip label="Open terminal" shortcut="⌘T">
+        <Tooltip label="Open terminal" shortcut={pretty(bindings["open-terminal"])}>
           <Button
             size="icon"
             variant="ghost"

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useActions } from "@/features/projects/useActions";
 import { useProjectList } from "@/features/projects/useProjectList";
+import { useShortcuts } from "@/features/shortcuts/useShortcuts";
 import { tildePath } from "@/lib/format";
 import { useApp } from "@/stores/app";
 import type { Project } from "@/types";
@@ -55,12 +56,14 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
     if (useApp.getState().selectedId === null) select(projects[0].id);
   }, [projects, select]);
 
-  // Keyboard navigation over the visible result set.
+  // Navigation is structural, not a preference: arrows and j/k are fixed, and
+  // Enter opens whatever the cursor is on.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(target.tagName))) return;
       if (projects.length === 0) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       const index = projects.findIndex((p) => p.id === selectedId);
       const move = (delta: number) => {
@@ -73,24 +76,26 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
       if (e.key === "ArrowUp" || e.key === "k") return move(-1);
 
       const project = projects[index];
-      if (!project) return;
-      if (e.key === "Enter") {
+      if (project && e.key === "Enter") {
         e.preventDefault();
         void actions.openIde(project);
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "t") {
-        e.preventDefault();
-        void actions.openTerminal(project);
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "i") {
-        e.preventDefault();
-        void actions.openIde(project);
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
-        e.preventDefault();
-        void actions.refresh(project);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [actions, projects, select, selectedId]);
+
+  // Everything that acts on the selected project, through bindings the user
+  // can change.
+  const selectedProject = projects.find((p) => p.id === selectedId) ?? null;
+  useShortcuts({
+    "open-ide": () => selectedProject && void actions.openIde(selectedProject),
+    "open-terminal": () => selectedProject && void actions.openTerminal(selectedProject),
+    "open-folder": () => selectedProject && void actions.openFolder(selectedProject),
+    "open-remote": () => selectedProject && void actions.openRemote(selectedProject),
+    refresh: () => selectedProject && void actions.refresh(selectedProject),
+    favorite: () => selectedProject && void actions.toggleFavorite(selectedProject),
+  });
 
   if (!loaded) {
     // Placeholder rows rather than an empty void: the board is about to have

@@ -10,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/controls";
 import { ScanDialog } from "@/features/projects/ScanDialog";
 import { useAddProject } from "@/features/projects/useAddProject";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
+import { useShortcuts } from "@/features/shortcuts/useShortcuts";
 import type { SettingsTab } from "@/stores/app";
 import { Dashboard } from "@/pages/Dashboard";
 import { useApp } from "@/stores/app";
@@ -48,27 +49,15 @@ export default function App() {
     document.documentElement.classList.toggle("light", theme === "light");
   }, [theme]);
 
-  // Global shortcuts stay inside the window: registering a system-wide hotkey
-  // would prompt for macOS Accessibility access, which this app does not need.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const meta = e.metaKey || e.ctrlKey;
-      if (!meta) return;
-      const key = e.key.toLowerCase();
-      if (key === "k") {
-        e.preventDefault();
-        setPaletteOpen((open) => !open);
-      } else if (key === "n") {
-        e.preventDefault();
-        void addProject.start();
-      } else if (key === ",") {
-        e.preventDefault();
-        openSettings();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [addProject]);
+  // Application-scope bindings. The project-scope ones live in Dashboard,
+  // which is where the selected project is known.
+  useShortcuts({
+    palette: () => setPaletteOpen((open) => !open),
+    add: () => void addProject.start(),
+    scan: () => setScanOpen(true),
+    settings: () => openSettings(),
+    view: () => useApp.getState().setView(useApp.getState().view === "list" ? "grid" : "list"),
+  });
 
   // Git state is re-read on a timer, and immediately whenever the window comes
   // back to the front. Committing in a terminal and switching to Archboard

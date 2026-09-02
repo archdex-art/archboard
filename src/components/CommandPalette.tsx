@@ -11,6 +11,8 @@ import {
   searchable,
   weighQuery,
 } from "@/features/projects/ranking";
+import { useBindings } from "@/features/shortcuts/useShortcuts";
+import { pretty } from "@/lib/accelerator";
 import { cn, tildePath } from "@/lib/format";
 import { useApp } from "@/stores/app";
 import type { GitStatus, Project } from "@/types";
@@ -44,6 +46,7 @@ export function CommandPalette({
   const git = useApp((s) => s.git);
   const select = useApp((s) => s.select);
   const actions = useActions();
+  const bindings = useBindings();
 
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
@@ -84,12 +87,12 @@ export function CommandPalette({
 
   const commands = useMemo<Command[]>(() => {
     const all: Command[] = [
-      { id: "add", label: "Add project…", hint: "⌘N", run: onAdd },
-      { id: "scan", label: "Find projects on this Mac…", run: onScan },
-      { id: "settings", label: "Open settings", hint: "⌘,", run: onSettings },
+      { id: "add", label: "Add project…", hint: pretty(bindings.add), run: onAdd },
+      { id: "scan", label: "Find projects on this Mac…", hint: pretty(bindings.scan), run: onScan },
+      { id: "settings", label: "Open settings", hint: pretty(bindings.settings), run: onSettings },
     ];
     return lowered ? all.filter((c) => c.label.toLowerCase().includes(lowered)) : all;
-  }, [lowered, onAdd, onScan, onSettings]);
+  }, [lowered, bindings, onAdd, onScan, onSettings]);
 
   const rows = useMemo(
     () => [

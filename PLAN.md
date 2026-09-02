@@ -172,6 +172,8 @@ There is no Apple Developer ID, so builds are ad-hoc signed (`codesign -s -`), w
 - **Showing needs three calls, in order:** `AppHandle::show` (which maps to `activateIgnoringOtherApps:`), then `window.show()`, then `window.set_focus()`. A background app calling `set_focus` alone raises the window without taking keyboard focus.
 - **Closing hides.** Once an app has a menu-bar icon, the red button ending the session is wrong; `CloseRequested` is intercepted and quit stays on the tray menu.
 - **The tray icon is a template image** — a black-on-transparent mask that macOS tints for light and dark menu bars, rather than two assets and a theme observer.
+- **One accelerator vocabulary.** `src/lib/accelerator.ts` owns the spelling (`Super`, `Alt`, `Control`, `Shift` + a physical key), so the same string can be handed to the global-shortcut plugin, matched against a `KeyboardEvent`, or drawn as `⇧⌘F`. Accelerators are read from `event.code`, never `event.key`: macOS reports `˚` for Alt+K and `!` for Shift+1, so a binding recorded from `event.key` would never match again.
+- **Modifier order is normalised on comparison.** Defaults are hand-written and recordings are machine-generated; without canonicalising, a default spelled `Super+Shift+F` never matches the `Shift+Super+F` the keyboard produces. Three shipped defaults were dead this way until a test caught it.
 - **Hide-on-blur is deliberately not implemented.** Our own native folder picker blurs the window, so the launcher would vanish mid-interaction. It needs a dialog-open guard to be safe, and it is not worth that for a behaviour not everyone wants.
 
 ---

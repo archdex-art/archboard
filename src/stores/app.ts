@@ -14,7 +14,7 @@ export type FilterId =
 
 export type SortMode = "frecency" | "recent" | "name" | "changes";
 export type ViewMode = "list" | "grid";
-export type SettingsTab = "general" | "ides" | "terminals" | "folders";
+export type SettingsTab = "general" | "shortcuts" | "ides" | "terminals" | "folders";
 
 export interface Toast {
   id: number;
