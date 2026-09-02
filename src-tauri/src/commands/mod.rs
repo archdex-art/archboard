@@ -11,6 +11,7 @@ use crate::error::{AppError, Code, Result};
 use crate::git::{self, Commit, GitStatus};
 use crate::launcher;
 use crate::scan::{self, Candidate};
+use crate::runner;
 use crate::shortcut;
 use crate::window;
 
@@ -532,4 +533,46 @@ pub fn hide_window(app: AppHandle) {
 pub fn set_dock_visible(app: AppHandle, db: State<'_, Db>, visible: bool) -> Result<()> {
     window::set_dock_visible(&app, visible);
     db::set_setting(&db.conn(), "show_dock_icon", &visible.to_string())
+}
+
+// ---------------------------------------------------------- saved commands
+
+#[tauri::command]
+pub fn list_commands(db: State<'_, Db>, project_id: i64) -> Result<Vec<ProjectCommand>> {
+    db::list_commands(&db.conn(), project_id)
+}
+
+#[tauri::command]
+pub fn upsert_command(db: State<'_, Db>, command: ProjectCommand) -> Result<Vec<ProjectCommand>> {
+    let conn = db.conn();
+    db::upsert_command(&conn, &command)?;
+    db::list_commands(&conn, command.project_id)
+}
+
+#[tauri::command]
+pub fn delete_command(db: State<'_, Db>, id: i64, project_id: i64) -> Result<Vec<ProjectCommand>> {
+    let conn = db.conn();
+    db::delete_command(&conn, id)?;
+    db::list_commands(&conn, project_id)
+}
+
+/// Runs a saved command in the user's terminal.
+///
+/// Nothing here is derived from the project's own files; the text is what the
+/// user typed, and it only runs because they asked for it now.
+#[tauri::command]
+pub fn run_command(db: State<'_, Db>, id: i64) -> Result<()> {
+    let (terminal, path) = {
+        let conn = db.conn();
+        let saved = db::get_command(&conn, id)?;
+        let project = db::get_project(&conn, saved.project_id)?;
+        let terminal = launcher::resolve(&conn, LauncherKind::Terminal, None, None)?;
+        (terminal, (project.path, saved.command))
+    };
+    let (dir, command) = path;
+    runner::run(&terminal, Path::new(&dir), &command)?;
+
+    let conn = db.conn();
+    let saved = db::get_command(&conn, id)?;
+    db::touch_project(&conn, saved.project_id)
 }

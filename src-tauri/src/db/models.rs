@@ -146,3 +146,18 @@ pub struct ScanRoot {
     #[serde(default = "yes")]
     pub enabled: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectCommand {
+    #[serde(default)]
+    pub id: i64,
+    pub project_id: i64,
+    pub label: String,
+    /// The user's own text, run in their shell exactly as typed.
+    pub command: String,
+    #[serde(default)]
+    pub position: i64,
+    #[serde(default)]
+    pub created_at: i64,
+}

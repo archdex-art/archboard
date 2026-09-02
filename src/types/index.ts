@@ -146,3 +146,13 @@ export interface ProjectPatch {
   isFavorite?: boolean;
   defaultIdeId?: number | null;
 }
+
+export interface ProjectCommand {
+  id: number;
+  projectId: number;
+  label: string;
+  /** The user's own text, run in their shell exactly as typed. */
+  command: string;
+  position: number;
+  createdAt: number;
+}

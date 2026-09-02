@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/controls";
 import { Textarea } from "@/components/ui/input";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger } from "@/components/ui/menu";
+import { CommandsBlock } from "@/features/commands/CommandsBlock";
 import { useActions } from "@/features/projects/useActions";
 import { agoIso, cn, tildePath } from "@/lib/format";
 import { api } from "@/lib/ipc";
@@ -275,6 +276,10 @@ export function DetailPane({ project, onClose }: { project: Project; onClose: ()
           </div>
         </Block>
       ) : null}
+
+      <Block title="Commands">
+        <CommandsBlock projectId={project.id} />
+      </Block>
 
       <Block title="Notes">
         <Textarea

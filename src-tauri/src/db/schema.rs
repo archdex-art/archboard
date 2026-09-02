@@ -66,6 +66,18 @@ CREATE TABLE settings (
   value TEXT NOT NULL
 );
 "#,
+    // 2 — saved per-project commands
+    r#"
+CREATE TABLE project_commands (
+  id         INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  label      TEXT    NOT NULL,
+  command    TEXT    NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_project_commands_project ON project_commands(project_id, position);
+"#,
 ];
 
 pub fn migrate(conn: &Connection) -> Result<()> {

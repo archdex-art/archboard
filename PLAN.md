@@ -188,8 +188,20 @@ Beyond the audit: the project list is a real `listbox` with `aria-activedescenda
 
 ---
 
-## 12. Out of scope
+## 12. Saved commands
 
-Commit/push/pull UI, branch management, diff viewer, Docker controls, task runners, hosting-provider APIs, cloud sync, team collaboration. Archboard's job ends the moment your editor opens; a launcher that grows a git client becomes a slow launcher and a bad git client.
+A project can keep commands the user has typed — `bun run dev`, `make test` — and run one in their terminal, in that folder.
+
+The line this stays on: **Archboard hands off and forgets.** It does not own the process, capture output, show logs, or offer to stop anything. That is the difference between a launcher action and a task runner, and it is why there is no output pane.
+
+- **Nothing is ever derived from the project's own files.** Reading `package.json` scripts and offering to run them would let a repository choose what executes on this machine. The text is what the user typed, and it runs because they clicked it now.
+- **How it runs.** A throwaway `0700` script is written to the temp directory: it marks itself started, `cd`s to the project with the path single-quoted, runs the command verbatim, then `exec`s a login shell so the window stays somewhere useful. Terminals with a command-line tool are given the script directly; the rest are handed it through `open -b`.
+- **Capability is proven, not assumed.** Verified here: Terminal.app executes a `.command` file, and **Warp does not** — `open` still exits 0. So the runner waits for the script's own marker and, if it never appears, says which terminal refused rather than leaving the user staring at a window where nothing happened.
+
+---
+
+## 13. Out of scope
+
+Commit/push/pull UI, branch management, diff viewer, Docker controls, build/run panes, hosting-provider APIs, cloud sync, team collaboration. Archboard's job ends the moment your editor opens; a launcher that grows a git client becomes a slow launcher and a bad git client.
 
 Windows and Linux are not implemented. The seam exists — a `platform` column and OS specifics isolated behind `#[cfg]` in `launcher/` — and no stub files pretend otherwise.

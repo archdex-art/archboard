@@ -10,6 +10,7 @@ import type {
   Launcher,
   LauncherKind,
   Project,
+  ProjectCommand,
   ProjectDetail,
   ProjectPatch,
   ScanRoot,
@@ -86,6 +87,14 @@ export const api = {
     call<ScanRoot[]>("update_scan_root", { id, depth, enabled }),
   removeScanRoot: (id: number) => call<ScanRoot[]>("remove_scan_root", { id }),
   scanRoots: () => call<void>("scan_roots"),
+
+  // saved commands
+  listCommands: (projectId: number) => call<ProjectCommand[]>("list_commands", { projectId }),
+  upsertCommand: (command: ProjectCommand) =>
+    call<ProjectCommand[]>("upsert_command", { command }),
+  deleteCommand: (id: number, projectId: number) =>
+    call<ProjectCommand[]>("delete_command", { id, projectId }),
+  runCommand: (id: number) => call<void>("run_command", { id }),
 
   // window and global shortcut
   setGlobalShortcut: (accelerator: string | null) =>

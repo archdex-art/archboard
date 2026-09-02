@@ -4,6 +4,7 @@ mod detect;
 mod error;
 mod git;
 mod launcher;
+mod runner;
 mod scan;
 mod shortcut;
 mod tray;
@@ -110,6 +111,10 @@ pub fn run() {
             commands::set_global_shortcut,
             commands::hide_window,
             commands::set_dock_visible,
+            commands::list_commands,
+            commands::upsert_command,
+            commands::delete_command,
+            commands::run_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running archboard");
