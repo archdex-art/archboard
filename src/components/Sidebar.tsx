@@ -3,7 +3,8 @@ import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { KNOWN_LANGUAGES, useFilterCounts } from "@/features/projects/useProjectList";
+import { KNOWN_LANGUAGES } from "@/features/projects/ranking";
+import { useFilterCounts } from "@/features/projects/useProjectList";
 import { api } from "@/lib/ipc";
 import { cn } from "@/lib/format";
 import { useApp, type FilterId } from "@/stores/app";

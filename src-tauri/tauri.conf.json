@@ -28,9 +28,11 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["app", "dmg"],
     "category": "DeveloperTool",
     "shortDescription": "Developer project dashboard",
+    "longDescription": "A dashboard for every code project on your Mac. See live git state and open a project's terminal, editor, folder or remote in one click.",
+    "copyright": "MIT",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

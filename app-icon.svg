@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!--
+    Archboard's mark is the product's one rule, drawn literally: a board of
+    project rows in graphite, and a single amber state gutter marking the one
+    with uncommitted work. Nothing else is coloured.
+  -->
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1D222A"/>
+      <stop offset="1" stop-color="#0B0D10"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.14"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Big Sur proportions: 824pt body centred on a 1024pt canvas. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#body)"/>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none"
+        stroke="url(#rim)" stroke-width="3"/>
+  <g transform="translate(24,-8)">
+    <!-- Row 1 — selected, and dirty. The only colour in the mark. -->
+    <rect x="258" y="355" width="22" height="80" rx="11" fill="#F0B429"/>
+    <rect x="318" y="371" width="392" height="24" rx="12" fill="#E4E7ED"/>
+    <rect x="318" y="411" width="236" height="16" rx="8" fill="#6C7484"/>
+
+    <!-- Rows 2 and 3 — clean, so the gutter stays dark. -->
+    <rect x="258" y="481" width="22" height="80" rx="11" fill="#2F343E"/>
+    <rect x="318" y="497" width="330" height="24" rx="12" fill="#575F6D"/>
+    <rect x="318" y="537" width="188" height="16" rx="8" fill="#3A404B"/>
+
+    <rect x="258" y="607" width="22" height="80" rx="11" fill="#2F343E"/>
+    <rect x="318" y="623" width="366" height="24" rx="12" fill="#575F6D"/>
+    <rect x="318" y="663" width="212" height="16" rx="8" fill="#3A404B"/>
+  </g>
+</svg>

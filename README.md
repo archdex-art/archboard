@@ -30,10 +30,23 @@ Human labels are set in IBM Plex Sans; machine truth — paths, branch names, ha
 ```bash
 bun install
 bun run tauri dev      # development
-bun run tauri build    # produces Archboard.app
+bun run check          # typecheck + 33 frontend tests
+bun run tauri build    # Archboard.app and a .dmg
 ```
 
-Requires Rust, Bun, and a local `git`.
+Requires Rust, Bun, and a local `git`. Backend tests: `cargo test --manifest-path src-tauri/Cargo.toml` (9 tests covering the porcelain parser, remote URLs, stack detection and the discovery walk).
+
+## Installing a build
+
+Builds are currently **ad-hoc signed and not notarized**, because there is no Apple Developer ID attached to this project yet. macOS will refuse to open the app the first time:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Archboard.app
+```
+
+…or right-click the app and choose **Open**. To sign properly, set `APPLE_SIGNING_IDENTITY`, `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` and `APPLE_TEAM_ID` — locally as environment variables, or as repository secrets, where [`.github/workflows/release.yml`](.github/workflows/release.yml) already reads them.
+
+Tag a release with `git tag v0.1.0 && git push --tags`; the workflow builds a universal binary and opens a draft release with the `.dmg` attached.
 
 ## Architecture
 
