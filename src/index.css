@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
+/*
+  Archboard — "ink and signal".
+
+  One rule governs this palette: colour marks state, never decoration. A board
+  of clean repositories renders entirely in graphite. Amber means you left work
+  uncommitted; violet means your branch has drifted from its remote; red means
+  something needs a decision. Nothing else is allowed to be colourful, so the
+  eye lands on unfinished work the moment the window opens.
+*/
+@theme {
+  --color-canvas: #0e1013;
+  --color-panel: #14171c;
+  --color-raised: #1a1e25;
+  --color-hover: #20252d;
+  --color-line: #23272f;
+  --color-line-strong: #313742;
+
+  --color-ink: #e9ebf0;
+  --color-ink-dim: #8a92a4;
+  --color-ink-faint: #5b6373;
+
+  --color-signal: #f0b429;
+  --color-signal-soft: #3a2c10;
+  --color-sync: #8b8cf7;
+  --color-sync-soft: #23234a;
+  --color-alert: #f2565b;
+  --color-alert-soft: #3a1c1f;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --radius-card: 10px;
+  --radius-control: 7px;
+
+  --ease-out-quick: cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+
+/*
+  Light mode keeps the same rule: graphite for everything, colour only where
+  the repository needs attention. Amber and violet are darkened so they still
+  carry against paper.
+*/
+:root.light {
+  --color-canvas: #f7f8fa;
+  --color-panel: #ffffff;
+  --color-raised: #eef0f4;
+  --color-hover: #e6e9ef;
+  --color-line: #e2e5eb;
+  --color-line-strong: #cbd1da;
+
+  --color-ink: #14171c;
+  --color-ink-dim: #545c6b;
+  --color-ink-faint: #858d9c;
+
+  --color-signal: #a45a06;
+  --color-signal-soft: #fbeed4;
+  --color-sync: #4a45cf;
+  --color-sync-soft: #e7e6fb;
+  --color-alert: #b8242a;
+  --color-alert-soft: #fbe4e5;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* A launcher is chrome, not a document: nothing here is selectable text. */
+    user-select: none;
+    cursor: default;
+    overflow: hidden;
+  }
+
+  /* Machine truth — paths, branches, counts, hashes — is always monospaced. */
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink-dim);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-faint);
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  input,
+  textarea {
+    user-select: text;
+  }
+}
+
+@layer components {
+  /*
+    The signature element. Every project row carries a two-pixel gutter on its
+    leading edge. It stays invisible while the repository is clean, so colour
+    in the list literally maps to work in progress.
+  */
+  .state-gutter {
+    position: absolute;
+    inset-block: 6px;
+    inset-inline-start: 0;
+    width: 2px;
+    border-radius: 999px;
+    background: transparent;
+    transition: background 140ms var(--ease-out-quick);
+  }
+  .state-gutter[data-state="dirty"] {
+    background: var(--color-signal);
+  }
+  .state-gutter[data-state="diverged"] {
+    background: var(--color-sync);
+  }
+  .state-gutter[data-state="conflict"] {
+    background: var(--color-alert);
+  }
+
+  .hairline {
+    box-shadow: inset 0 -1px 0 var(--color-line);
+  }
+
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+}
+
+@keyframes archboard-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes archboard-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-rise {
+  animation: archboard-rise 130ms var(--ease-out-quick);
+}
+.animate-fade {
+  animation: archboard-fade 110ms var(--ease-out-quick);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

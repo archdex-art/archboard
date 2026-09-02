@@ -1,0 +1,36 @@
+[package]
+name = "archboard"
+version = "0.1.0"
+description = "Developer project dashboard"
+authors = ["archboard"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "archboard_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-dialog = "2.7.3"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+walkdir = "2.5.0"
+dirs = "6.0.0"
+thiserror = "2.0.20"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "sync", "time", "process", "macros"] }
+dashmap = "6.2.1"
+plist = "1.10.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+
