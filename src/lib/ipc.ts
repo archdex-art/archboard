@@ -21,10 +21,19 @@ export function isAppError(value: unknown): value is AppError {
   return typeof value === "object" && value !== null && "code" in value && "message" in value;
 }
 
-/** Anything that escapes the backend still has to read like a sentence. */
+/**
+ * Anything that escapes the backend still has to read like a sentence. A raw
+ * `TypeError` is a fact about our code, not something the reader can act on,
+ * so it moves to the hint and a plain sentence takes its place.
+ */
 export function toAppError(value: unknown): AppError {
   if (isAppError(value)) return value;
-  return { code: "io", message: String(value) };
+  const detail = value instanceof Error ? value.message : String(value);
+  return {
+    code: "io",
+    message: "Archboard could not reach its backend.",
+    hint: detail || undefined,
+  };
 }
 
 const call = <T,>(cmd: string, args?: Record<string, unknown>) =>

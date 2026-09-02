@@ -58,6 +58,10 @@ export function TopBar({
 
   return (
     <header className="drag-region flex h-[46px] shrink-0 items-center gap-2 border-b border-line bg-canvas pl-[84px] pr-3">
+      {/* The interface carries no visible title, but the document needs one
+          top-level heading, and the banner landmark is where it belongs. */}
+      <h1 className="sr-only">Archboard — developer project dashboard</h1>
+
       <div className="no-drag relative w-full max-w-[380px]">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
         <input

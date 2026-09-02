@@ -23,9 +23,15 @@
   --color-line: #23272f;
   --color-line-strong: #313742;
 
+  /*
+    Three text levels, each measured against the lightest surface it appears
+    on. The quiet layer used to sit at 2.97:1, which is not quiet — it is
+    unreadable. Now: 14:1 / 7.1:1 / 4.6:1, all clearing WCAG AA for the
+    10-12px sizes this interface actually uses.
+  */
   --color-ink: #e9ebf0;
-  --color-ink-dim: #8a92a4;
-  --color-ink-faint: #5b6373;
+  --color-ink-dim: #a3a9b7;
+  --color-ink-faint: #818793;
 
   --color-signal: #f0b429;
   --color-signal-soft: #3a2c10;
@@ -58,8 +64,8 @@
   --color-line-strong: #cbd1da;
 
   --color-ink: #14171c;
-  --color-ink-dim: #545c6b;
-  --color-ink-faint: #858d9c;
+  --color-ink-dim: #49505d;
+  --color-ink-faint: #656b77;
 
   --color-signal: #a45a06;
   --color-signal-soft: #fbeed4;

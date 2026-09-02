@@ -92,7 +92,26 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
     return () => window.removeEventListener("keydown", onKey);
   }, [actions, projects, select, selectedId]);
 
-  if (loaded && projects.length === 0) {
+  if (!loaded) {
+    // Placeholder rows rather than an empty void: the board is about to have
+    // content, and a flash of "your board is empty" would be a lie.
+    return (
+      <div className="flex-1 space-y-1 px-2 py-2" aria-busy="true" aria-label="Loading projects">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="flex h-[46px] items-center gap-3 rounded-[8px] px-3">
+            <span className="h-3.5 w-3.5 shrink-0 animate-pulse rounded-full bg-line" />
+            <div className="flex-1 space-y-1.5">
+              <span className="block h-2.5 w-40 animate-pulse rounded-full bg-line" />
+              <span className="block h-2 w-64 animate-pulse rounded-full bg-line/60" />
+            </div>
+            <span className="h-2 w-16 animate-pulse rounded-full bg-line" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (projects.length === 0) {
     const empty = query || filter !== "all";
     return (
       <div className="flex flex-1 items-center justify-center px-8">
@@ -138,10 +157,16 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
       <div
         role="listbox"
         aria-label="Projects"
+        // Focusable with an active descendant so assistive technology follows
+        // the same cursor the arrow keys move. The key handler stays on the
+        // window, because a launcher's shortcuts should work without first
+        // clicking the list.
+        tabIndex={0}
+        aria-activedescendant={selectedId !== null ? `project-${selectedId}` : undefined}
         className={
           view === "list"
-            ? "@container flex-1 overflow-y-auto px-2 py-2"
-            : "@container grid flex-1 grid-cols-[repeat(auto-fill,minmax(268px,1fr))] content-start gap-2.5 overflow-y-auto p-3"
+            ? "@container flex-1 overflow-y-auto px-2 py-2 outline-none"
+            : "@container grid flex-1 grid-cols-[repeat(auto-fill,minmax(268px,1fr))] content-start gap-2.5 overflow-y-auto p-3 outline-none"
         }
       >
         {projects.map((project) =>

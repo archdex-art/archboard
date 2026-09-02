@@ -165,7 +165,17 @@ There is no Apple Developer ID, so builds are ad-hoc signed (`codesign -s -`), w
 
 ---
 
-## 10. Out of scope
+## 10. Accessibility
+
+Audited with axe-core against the built app, in both themes: **0 violations, 32 passes**.
+
+The audit found two real defects. The quiet text layer sat at **2.97:1** — that is not quiet, it is unreadable — so the three text levels were re-derived against the lightest surface each appears on and now measure 14:1 / 7.1:1 / 4.6:1 in dark and 15.7:1 / 7.1:1 / 4.7:1 in light. Every accent already passed. The app also had no top-level heading; there is now a visually hidden `h1` inside the banner landmark.
+
+Beyond the audit: the project list is a real `listbox` with `aria-activedescendant` tracking the keyboard cursor, the palette is a `combobox` with `aria-controls` and `aria-selected` options, every icon-only control carries an `aria-label`, focus is always visible, and `prefers-reduced-motion` collapses every transition.
+
+---
+
+## 11. Out of scope
 
 Commit/push/pull UI, branch management, diff viewer, Docker controls, task runners, hosting-provider APIs, cloud sync, team collaboration. Archboard's job ends the moment your editor opens; a launcher that grows a git client becomes a slow launcher and a bad git client.
 

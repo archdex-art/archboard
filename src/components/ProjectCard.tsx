@@ -53,6 +53,7 @@ function CardImpl({
   return (
     <div
       ref={ref}
+      id={`project-${project.id}`}
       role="option"
       aria-selected={selected}
       onClick={() => onSelect(project.id)}

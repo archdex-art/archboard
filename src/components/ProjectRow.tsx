@@ -60,6 +60,7 @@ function RowImpl({
   return (
     <div
       ref={ref}
+      id={`project-${project.id}`}
       role="option"
       aria-selected={selected}
       tabIndex={-1}

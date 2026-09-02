@@ -142,6 +142,12 @@ export function CommandPalette({
               autoFocus
               value={query}
               spellCheck={false}
+              role="combobox"
+              aria-expanded
+              aria-controls="palette-results"
+              aria-autocomplete="list"
+              aria-activedescendant={rows.length > 0 ? `palette-row-${cursor}` : undefined}
+              aria-label="Search projects and commands"
               onChange={(e) => {
                 setQuery(e.target.value);
                 setCursor(0);
@@ -151,7 +157,13 @@ export function CommandPalette({
             />
           </div>
 
-          <div ref={listRef} className="max-h-[380px] overflow-y-auto p-1.5">
+          <div
+            ref={listRef}
+            id="palette-results"
+            role="listbox"
+            aria-label="Results"
+            className="max-h-[380px] overflow-y-auto p-1.5"
+          >
             {rows.length === 0 ? (
               <p className="px-2.5 py-6 text-center text-[12.5px] text-ink-faint">
                 Nothing matches “{query}”.
@@ -164,6 +176,9 @@ export function CommandPalette({
               return (
                 <div
                   key={key}
+                  id={`palette-row-${index}`}
+                  role="option"
+                  aria-selected={active}
                   onMouseEnter={() => setCursor(index)}
                   onClick={() => activate(index)}
                   className={cn(

@@ -60,17 +60,33 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [addProject]);
 
-  // Periodic refresh of whatever git state is already loaded, paused while the
-  // window is in the background so a hidden app costs nothing.
+  // Git state is re-read on a timer, and immediately whenever the window comes
+  // back to the front. Committing in a terminal and switching to Archboard
+  // should show the result straight away, not up to a minute later.
   useEffect(() => {
     if (!autoRefresh) return;
-    const tick = () => {
+
+    let lastRun = 0;
+    const refreshLoaded = (minGapMs: number) => {
       if (document.hidden) return;
+      const now = Date.now();
+      if (now - lastRun < minGapMs) return;
+      lastRun = now;
       const loaded = Object.keys(useApp.getState().git).map(Number);
       if (loaded.length > 0) void refreshGit(loaded, true);
     };
-    const timer = window.setInterval(tick, REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(timer);
+
+    // Alt-tabbing rapidly must not fire a refresh per switch.
+    const onFocus = () => refreshLoaded(3_000);
+    const timer = window.setInterval(() => refreshLoaded(0), REFRESH_INTERVAL_MS);
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [autoRefresh, refreshGit]);
 
   const selected = projects.find((p) => p.id === selectedId) ?? null;
