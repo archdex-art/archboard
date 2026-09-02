@@ -11,6 +11,8 @@ use crate::error::{AppError, Code, Result};
 use crate::git::{self, Commit, GitStatus};
 use crate::launcher;
 use crate::scan::{self, Candidate};
+use crate::shortcut;
+use crate::window;
 
 /// Canonicalizes and validates a user-supplied directory before it is ever
 /// stored or used as a working directory.
@@ -481,4 +483,53 @@ pub fn get_settings(db: State<'_, Db>) -> Result<std::collections::HashMap<Strin
 #[tauri::command]
 pub fn set_setting(db: State<'_, Db>, key: String, value: String) -> Result<()> {
     db::set_setting(&db.conn(), &key, &value)
+}
+
+// ------------------------------------------------- global shortcut & window
+
+/// Binds a new global shortcut, or clears it when `accelerator` is `None`.
+///
+/// The new binding is proved to work before it is saved: if the combination is
+/// taken, the previous one is put back so the user is never left with nothing.
+#[tauri::command]
+pub fn set_global_shortcut(
+    app: AppHandle,
+    db: State<'_, Db>,
+    accelerator: Option<String>,
+) -> Result<()> {
+    let previous = {
+        let conn = db.conn();
+        db::get_setting(&conn, shortcut::SETTING_KEY)?
+    };
+
+    match accelerator.as_deref().map(str::trim).filter(|a| !a.is_empty()) {
+        Some(next) => {
+            if let Err(e) = shortcut::apply(&app, next) {
+                if let Some(previous) = previous.as_deref() {
+                    let _ = shortcut::apply(&app, previous);
+                }
+                return Err(e);
+            }
+            let conn = db.conn();
+            db::set_setting(&conn, shortcut::SETTING_KEY, next)?;
+            db::set_setting(&conn, shortcut::SETTING_ENABLED, "true")?;
+        }
+        None => {
+            shortcut::clear(&app);
+            db::set_setting(&db.conn(), shortcut::SETTING_ENABLED, "false")?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn hide_window(app: AppHandle) {
+    window::hide(&app);
+}
+
+/// Adds or removes the Dock icon. Applied immediately, no restart.
+#[tauri::command]
+pub fn set_dock_visible(app: AppHandle, db: State<'_, Db>, visible: bool) -> Result<()> {
+    window::set_dock_visible(&app, visible);
+    db::set_setting(&db.conn(), "show_dock_icon", &visible.to_string())
 }

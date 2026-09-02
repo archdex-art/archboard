@@ -1,12 +1,16 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Check, FolderPlus, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox, Switch } from "@/components/ui/controls";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
+import {
+  ShortcutRecorder,
+  prettyAccelerator,
+} from "@/features/settings/ShortcutRecorder";
 import { cn, tildePath } from "@/lib/format";
 import { api } from "@/lib/ipc";
 import { useApp, type SettingsTab } from "@/stores/app";
@@ -329,6 +333,9 @@ function Folders() {
   );
 }
 
+/** Mirrors `shortcut::DEFAULT_ACCELERATOR` in the Rust layer. */
+const DEFAULT_SHORTCUT = "Alt+K";
+
 const TABS: [SettingsTab, string][] = [
   ["general", "General"],
   ["ides", "Editors"],
@@ -348,8 +355,34 @@ export function SettingsDialog({
   onTabChange: (tab: SettingsTab) => void;
 }) {
   const theme = useApp((s) => s.settings.theme ?? "dark");
+  const shortcut = useApp((s) => s.settings.global_shortcut ?? DEFAULT_SHORTCUT);
+  const shortcutEnabled = useApp((s) => s.settings.global_shortcut_enabled !== "false");
+  const showDock = useApp((s) => s.settings.show_dock_icon !== "false");
   const saveSetting = useApp((s) => s.saveSetting);
   const reloadLaunchers = useApp((s) => s.reloadLaunchers);
+  const notify = useApp((s) => s.notify);
+  const fail = useApp((s) => s.fail);
+
+  /**
+   * Binds a new accelerator, or clears it when passed null. The backend proves
+   * the combination is free before saving, and restores the previous binding
+   * if it is not, so a rejected shortcut never leaves the user with none.
+   */
+  const bindShortcut = useCallback(
+    async (accelerator: string | null) => {
+      try {
+        await api.setGlobalShortcut(accelerator);
+        await saveSetting("global_shortcut_enabled", String(accelerator !== null));
+        if (accelerator) {
+          await saveSetting("global_shortcut", accelerator);
+          notify({ tone: "info", title: `Shortcut set to ${prettyAccelerator(accelerator)}` });
+        }
+      } catch (e) {
+        fail(e);
+      }
+    },
+    [fail, notify, saveSetting],
+  );
 
   useEffect(() => {
     if (isOpen) void reloadLaunchers();
@@ -393,6 +426,40 @@ export function SettingsDialog({
                   </button>
                 ))}
               </div>
+            </Row>
+            <Row
+              title="Global shortcut"
+              description="Summons Archboard from any application. Press it again to dismiss."
+            >
+              <div className="flex items-center gap-2">
+                <ShortcutRecorder
+                  value={shortcut}
+                  disabled={!shortcutEnabled}
+                  onRecord={(accelerator) => void bindShortcut(accelerator)}
+                />
+                <Switch
+                  checked={shortcutEnabled}
+                  aria-label="Enable the global shortcut"
+                  onCheckedChange={(on) => void (on ? bindShortcut(shortcut) : bindShortcut(null))}
+                />
+              </div>
+            </Row>
+            <Row
+              title="Show in the Dock"
+              description="Turn off to live only in the menu bar, out of the Dock and out of Command-Tab."
+            >
+              <Switch
+                checked={showDock}
+                aria-label="Show the Dock icon"
+                onCheckedChange={async (on) => {
+                  try {
+                    await api.setDockVisible(on);
+                    await useApp.getState().saveSetting("show_dock_icon", String(on));
+                  } catch (e) {
+                    useApp.getState().fail(e);
+                  }
+                }}
+              />
             </Row>
             <Row
               title="Refresh git status automatically"

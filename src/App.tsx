@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 
 import { CommandPalette } from "@/components/CommandPalette";
@@ -9,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/controls";
 import { ScanDialog } from "@/features/projects/ScanDialog";
 import { useAddProject } from "@/features/projects/useAddProject";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
+import type { SettingsTab } from "@/stores/app";
 import { Dashboard } from "@/pages/Dashboard";
 import { useApp } from "@/stores/app";
 
@@ -33,6 +35,14 @@ export default function App() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // The tray menu can ask for Settings while the window is hidden.
+  useEffect(() => {
+    const unlisten = listen<string>("open-settings", (e) =>
+      openSettings((e.payload as SettingsTab) || "general"),
+    );
+    return () => void unlisten.then((fn) => fn());
+  }, [openSettings]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", theme === "light");

@@ -39,7 +39,7 @@ Each of these was verified, not assumed.
 6. **`osascript` is avoidable.** `open -b <bundle-id> <dir>` goes through LaunchServices: no Apple Events, no Automation permission prompt.
 7. **A Tauri GUI app does not inherit the shell `$PATH`.** `code .` fails in a bundled build. Launching goes through `open -b`, or an absolute shim resolved at detection time.
 8. **Own SQLite in Rust.** `rusqlite` behind typed commands, not `tauri-plugin-sql`: the background scanner needs the same connection, and no SQL should live in the frontend.
-9. **`⌘K` is an in-window listener.** `tauri-plugin-global-shortcut` would trigger a macOS Accessibility prompt for no benefit while the window is already focused.
+9. **A global hotkey costs no permission — I was wrong about this twice.** I twice claimed `tauri-plugin-global-shortcut` would trigger an Accessibility prompt. Reading `global-hotkey`'s macOS backend settles it: ordinary shortcuts go through Carbon `RegisterEventHotKey` (`platform_impl/macos/mod.rs:117`), which needs no permission and delivers while the app is in the background. The `CGEventTapCreate` call in the same file belongs to `start_watching_media_keys` and only runs for media keys — which is why Archboard refuses to bind them. `⌘K` stays an in-window listener; `⌥K` is the global one.
 10. **The window's visibility is not persisted.** `tauri-plugin-window-state` would otherwise save "hidden" and, if the app died before showing, restore it hidden forever. `StateFlags::all() - VISIBLE`, and `setup` shows the window itself.
 
 ---
@@ -165,7 +165,18 @@ There is no Apple Developer ID, so builds are ad-hoc signed (`codesign -s -`), w
 
 ---
 
-## 10. Accessibility
+## 10. Menu-bar behaviour
+
+- **Default `⌥K`**, avoiding `⌘Space` (Spotlight), `⌥Space` (Raycast, Alfred) and a global `⌘K`, which would take the key away from every editor and chat app. Re-recordable, and the recorder rejects a bare key because that would swallow it system-wide.
+- **A rejected binding never leaves the user with none.** The backend registers the new accelerator *before* saving it and puts the previous one back if the OS says the combination is taken.
+- **Showing needs three calls, in order:** `AppHandle::show` (which maps to `activateIgnoringOtherApps:`), then `window.show()`, then `window.set_focus()`. A background app calling `set_focus` alone raises the window without taking keyboard focus.
+- **Closing hides.** Once an app has a menu-bar icon, the red button ending the session is wrong; `CloseRequested` is intercepted and quit stays on the tray menu.
+- **The tray icon is a template image** — a black-on-transparent mask that macOS tints for light and dark menu bars, rather than two assets and a theme observer.
+- **Hide-on-blur is deliberately not implemented.** Our own native folder picker blurs the window, so the launcher would vanish mid-interaction. It needs a dialog-open guard to be safe, and it is not worth that for a behaviour not everyone wants.
+
+---
+
+## 11. Accessibility
 
 Audited with axe-core against the built app, in both themes: **0 violations, 32 passes**.
 
@@ -175,7 +186,7 @@ Beyond the audit: the project list is a real `listbox` with `aria-activedescenda
 
 ---
 
-## 11. Out of scope
+## 12. Out of scope
 
 Commit/push/pull UI, branch management, diff viewer, Docker controls, task runners, hosting-provider APIs, cloud sync, team collaboration. Archboard's job ends the moment your editor opens; a launcher that grows a git client becomes a slow launcher and a bad git client.
 

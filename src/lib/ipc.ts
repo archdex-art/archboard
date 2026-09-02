@@ -87,6 +87,12 @@ export const api = {
   removeScanRoot: (id: number) => call<ScanRoot[]>("remove_scan_root", { id }),
   scanRoots: () => call<void>("scan_roots"),
 
+  // window and global shortcut
+  setGlobalShortcut: (accelerator: string | null) =>
+    call<void>("set_global_shortcut", { accelerator }),
+  hideWindow: () => call<void>("hide_window"),
+  setDockVisible: (visible: boolean) => call<void>("set_dock_visible", { visible }),
+
   // settings
   getSettings: () => call<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) => call<void>("set_setting", { key, value }),

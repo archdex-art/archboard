@@ -5,6 +5,9 @@ mod error;
 mod git;
 mod launcher;
 mod scan;
+mod shortcut;
+mod tray;
+mod window;
 
 use tauri::Manager;
 
@@ -30,16 +33,43 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .manage(shortcut::Registered::default())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             let db = Db::open(&dir.join("archboard.db"))?;
             app.manage(db);
+
+            let handle = app.handle();
+            tray::build(app)?;
+
+            // A saved binding that has since been taken by another app must
+            // not stop the application from starting.
+            if let Err(e) = shortcut::restore(handle) {
+                eprintln!("archboard: global shortcut not restored: {e}");
+            }
+
+            let dock = {
+                let db = handle.state::<Db>();
+                let conn = db.conn();
+                db::get_setting(&conn, "show_dock_icon")?.map(|v| v == "true").unwrap_or(true)
+            };
+            window::set_dock_visible(handle, dock);
 
             if let Some(window) = app.get_webview_window("main") {
                 window.show()?;
                 window.set_focus()?;
             }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // With a menu-bar icon and a global hotkey, the red button should
+            // put the window away rather than end the session. Quit stays
+            // available from the tray menu and the app menu.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_projects,
@@ -77,6 +107,9 @@ pub fn run() {
             commands::scan_roots,
             commands::get_settings,
             commands::set_setting,
+            commands::set_global_shortcut,
+            commands::hide_window,
+            commands::set_dock_visible,
         ])
         .run(tauri::generate_context!())
         .expect("error while running archboard");

@@ -14,8 +14,17 @@ Built with Tauri v2, Rust, React, TypeScript, Tailwind, and SQLite.
 - **One-click context switching** — open the project in any installed editor, a terminal already `cd`'d to the folder, Finder, or its page on GitHub/GitLab/Bitbucket/Azure DevOps.
 - **Project detection** — language, framework, and package manager from the top-level manifest. 23 markers, no recursion, nothing executed.
 - **Discovery** — point it at `~/Projects` and it finds the repositories, then asks before adding any of them.
+- **Always one keystroke away** — `⌥K` from any application summons Archboard; press it again to dismiss. It also lives in the menu bar, and can drop out of the Dock entirely.
 - **Keyboard-first** — `⌘K` palette, `⌘N` add, `⌘T` terminal, `⌘I` editor, `⌘R` refresh, `↑↓`/`j k` to move, `↵` to open.
 - Favorites, tags, notes, per-project default editor, frecency sorting.
+
+### The global shortcut
+
+`⌥K` is registered by default and can be re-recorded or turned off in Settings. It deliberately avoids `⌘Space` (Spotlight), `⌥Space` (Raycast and Alfred) and a global `⌘K`, which would steal the key from every editor and chat app you use.
+
+macOS asks for **no permissions** for this. Ordinary shortcuts go through Carbon's `RegisterEventHotKey`, which needs neither Accessibility nor Input Monitoring; only media keys would take the event-tap path that prompts, so Archboard refuses to bind them. If a combination is already taken, registration fails with a message instead of silently doing nothing, and the previous binding is restored.
+
+Closing the window hides it, since the app is reachable from the menu bar and the shortcut. Quit from the tray menu or `⌘Q`.
 
 ## Design
 
