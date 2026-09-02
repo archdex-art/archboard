@@ -196,6 +196,7 @@ The line this stays on: **Archboard hands off and forgets.** It does not own the
 
 - **Nothing is ever derived from the project's own files.** Reading `package.json` scripts and offering to run them would let a repository choose what executes on this machine. The text is what the user typed, and it runs because they clicked it now.
 - **How it runs.** A throwaway `0700` script is written to the temp directory: it marks itself started, `cd`s to the project with the path single-quoted, runs the command verbatim, then `exec`s a login shell so the window stays somewhere useful. Terminals with a command-line tool are given the script directly; the rest are handed it through `open -b`.
+- **The window is left alive on purpose.** After the command, the script `exec`s a login shell in the project, so output survives and the user is somewhere useful. The cost is Terminal's "terminate running processes?" prompt on close, since the shell is not the one it started. Closing the window instead would take a short command's output with it, which is the worse of the two.
 - **Capability is proven, not assumed.** Verified here: Terminal.app executes a `.command` file, and **Warp does not** — `open` still exits 0. So the runner waits for the script's own marker and, if it never appears, says which terminal refused rather than leaving the user staring at a window where nothing happened.
 
 ---

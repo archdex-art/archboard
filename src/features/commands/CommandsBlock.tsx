@@ -83,8 +83,10 @@ export function CommandsBlock({ projectId }: { projectId: number }) {
             }}
           >
             <Play className="h-3 w-3 shrink-0" strokeWidth={2.5} />
-            <span className="truncate">{command.label}</span>
-            <span className="mono ml-auto shrink-0 truncate pl-2 text-[10.5px] text-ink-faint">
+            {/* The name is what the user scans for, so it keeps its width and
+                the command text gives way first. */}
+            <span className="shrink-0 truncate">{command.label}</span>
+            <span className="mono ml-auto min-w-0 truncate pl-3 text-right text-[10.5px] text-ink-faint">
               {command.command}
             </span>
           </Button>

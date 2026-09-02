@@ -27,6 +27,12 @@ const PROOF_TIMEOUT: Duration = Duration::from_millis(2500);
 /// terminal that ran it and one that merely opened. It then hands the session
 /// to an interactive shell in the project directory, leaving the user
 /// somewhere useful rather than closing the window.
+///
+/// That trailing shell is a deliberate trade. Terminal.app asks "terminate
+/// running processes?" when a window holding a shell it did not start is
+/// closed, so this costs one extra click. Dropping it would remove the prompt
+/// but also close the window the instant a short command finished, taking its
+/// output with it — which is worse for `make test` than a confirmation is.
 fn write_script(dir: &Path, command: &str, marker: &Path) -> Result<PathBuf> {
     let mut path = std::env::temp_dir();
     path.push(format!("archboard-run-{}.command", std::process::id()));
