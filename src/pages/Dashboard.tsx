@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useActions } from "@/features/projects/useActions";
 import { useProjectList } from "@/features/projects/useProjectList";
 import { useShortcuts } from "@/features/shortcuts/useShortcuts";
+import { pretty } from "@/lib/accelerator";
 import { tildePath } from "@/lib/format";
 import { useApp } from "@/stores/app";
 import type { Project } from "@/types";
@@ -23,6 +24,7 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
   const select = useApp((s) => s.select);
   const refreshGit = useApp((s) => s.refreshGit);
   const loaded = useApp((s) => s.loaded);
+  const globalShortcut = useApp((s) => s.settings.global_shortcut ?? "Alt+K");
   const actions = useActions();
 
   const [pendingRemoval, setPendingRemoval] = useState<Project | null>(null);
@@ -131,15 +133,23 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
               : "Add a project folder, or let Archboard find the repositories already on this Mac."}
           </p>
           {!empty ? (
-            <div className="mt-4 flex justify-center gap-2">
-              <Button variant="primary" size="sm" onClick={onAdd}>
-                Add project
-              </Button>
-              <Button variant="secondary" size="sm" onClick={onScan}>
-                <Telescope className="h-3.5 w-3.5" />
-                Find projects
-              </Button>
-            </div>
+            <>
+              <div className="mt-4 flex justify-center gap-2">
+                <Button variant="primary" size="sm" onClick={onAdd}>
+                  Add project
+                </Button>
+                <Button variant="secondary" size="sm" onClick={onScan}>
+                  <Telescope className="h-3.5 w-3.5" />
+                  Find projects
+                </Button>
+              </div>
+              {/* The global shortcut is the whole point of the app and there is
+                  nowhere else a new user would discover it. */}
+              <p className="mt-5 text-[12px] text-ink-faint">
+                Press <kbd className="mono text-ink-dim">{pretty(globalShortcut)}</kbd> from any
+                application to summon Archboard.
+              </p>
+            </>
           ) : null}
         </div>
       </div>

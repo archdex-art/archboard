@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { ago, agoIso, stateOf, tildePath } from "@/lib/format";
+import { ago, agoIso, middleEllipsis, stateOf, tildePath } from "@/lib/format";
 
 describe("tildePath", () => {
   test("shortens a home path but leaves everything else alone", () => {
@@ -54,5 +54,31 @@ describe("stateOf", () => {
     expect(stateOf({ ...clean, staged: 1 })).toBe("dirty");
     expect(stateOf({ ...clean, behind: 3 })).toBe("diverged");
     expect(stateOf(clean)).toBe("clean");
+  });
+});
+
+describe("middleEllipsis", () => {
+  test("keeps the part of a branch name that distinguishes it", () => {
+    // Clipping from the right would leave "feat/context-e…", which is the
+    // half every other branch shares.
+    expect(middleEllipsis("feat/context-economics", 14)).toBe("feat/c…onomics");
+    expect(middleEllipsis("fix/honcho-plugin-pydantic-validation", 14)).toBe("fix/ho…idation");
+    expect(middleEllipsis("feat/ci-gate-and-triage-ui", 14)).toBe("feat/c…iage-ui");
+  });
+
+  test("leaves anything that already fits alone", () => {
+    expect(middleEllipsis("main", 14)).toBe("main");
+    expect(middleEllipsis("release/1.0.0", 14)).toBe("release/1.0.0");
+    expect(middleEllipsis("", 14)).toBe("");
+  });
+
+  test("never returns more characters than it was given", () => {
+    for (const max of [4, 8, 14, 22]) {
+      expect(middleEllipsis("fix/honcho-plugin-pydantic-validation", max).length).toBe(max);
+    }
+  });
+
+  test("gives up rather than emit nonsense at absurd widths", () => {
+    expect(middleEllipsis("feature-branch", 3)).toBe("feature-branch");
   });
 });

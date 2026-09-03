@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, GitBranch, TriangleAlert } from "lucide-react";
 
-import { cn } from "@/lib/format";
+import { cn, middleEllipsis } from "@/lib/format";
 import type { GitStatus } from "@/types";
 
 /**
@@ -9,14 +9,25 @@ import type { GitStatus } from "@/types";
  * a conflict. A clean repository is rendered in graphite.
  */
 
-export function BranchBadge({ status, className }: { status: GitStatus; className?: string }) {
+export function BranchBadge({
+  status,
+  className,
+  /** Characters the column can show. Omit where there is room to spare. */
+  max,
+}: {
+  status: GitStatus;
+  className?: string;
+  max?: number;
+}) {
   const label = status.detached
     ? `detached ${status.lastCommit?.shortSha ?? ""}`.trim()
     : (status.branch ?? "no commits yet");
   return (
     <span className={cn("mono flex min-w-0 items-center gap-1 text-[11.5px] text-ink-dim", className)}>
       <GitBranch className="h-3 w-3 shrink-0 text-ink-faint" strokeWidth={2} />
-      <span className="truncate">{label}</span>
+      <span className="truncate" title={label}>
+        {max ? middleEllipsis(label, max) : label}
+      </span>
     </span>
   );
 }

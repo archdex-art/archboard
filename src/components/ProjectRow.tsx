@@ -5,7 +5,7 @@ import { BranchBadge, ChangeBadge, Chip, SyncBadge } from "@/components/GitBadge
 import { ProjectMenu } from "@/components/ProjectMenu";
 import { Button } from "@/components/ui/button";
 import { useActions } from "@/features/projects/useActions";
-import { ago, cn, stateOf, tildePath } from "@/lib/format";
+import { ago, agoIso, cn, stateOf, tildePath } from "@/lib/format";
 import type { AppError, GitStatus, Project } from "@/types";
 
 export interface RowProps {
@@ -69,12 +69,17 @@ function RowImpl({
       className={cn(
         // Fixed columns so branch, changes and age line up vertically down the
         // whole list: this list is read by scanning a column, not a row.
+        //
         // The breakpoints are container queries, because the list narrows when
-        // the detail pane opens while the window itself does not.
+        // the detail pane opens while the window itself does not. They are
+        // ordered by how much each column earns its space: the branch is the
+        // reason this list exists, so it survives down to a very narrow list
+        // and the decorative stack chips are the first thing to go.
         "group relative grid h-[46px] cursor-default items-center gap-x-3 rounded-[8px] pl-3 pr-2",
         "grid-cols-[14px_minmax(0,1fr)_78px_24px] transition-colors duration-120",
-        "@[560px]:grid-cols-[14px_minmax(0,1fr)_124px_78px_32px_24px]",
-        "@[620px]:grid-cols-[14px_minmax(0,1.3fr)_minmax(0,1fr)_124px_78px_32px_24px]",
+        "@[400px]:grid-cols-[14px_minmax(0,1fr)_120px_78px_24px]",
+        "@[560px]:grid-cols-[14px_minmax(0,1fr)_120px_78px_34px_24px]",
+        "@[700px]:grid-cols-[14px_minmax(0,1.3fr)_minmax(0,1fr)_120px_78px_34px_24px]",
         selected ? "bg-raised" : "hover:bg-panel",
       )}
     >
@@ -105,7 +110,7 @@ function RowImpl({
       </div>
 
       <div
-        className="hidden min-w-0 items-center gap-1.5 overflow-hidden @[620px]:flex"
+        className="hidden min-w-0 items-center gap-1.5 overflow-hidden @[700px]:flex"
         style={{ maskImage: "linear-gradient(to right, black calc(100% - 20px), transparent)" }}
       >
         {stack ? <Chip>{stack}</Chip> : null}
@@ -117,12 +122,12 @@ function RowImpl({
         ))}
       </div>
 
-      <div className="hidden min-w-0 items-center gap-2 @[560px]:flex">
+      <div className="hidden min-w-0 items-center gap-2 @[400px]:flex">
         {error ? (
           <span className="mono truncate text-[11.5px] text-alert">unavailable</span>
         ) : status?.initialized ? (
           <>
-            <BranchBadge status={status} />
+            <BranchBadge status={status} max={14} />
             <SyncBadge status={status} />
           </>
         ) : status ? (
@@ -136,8 +141,19 @@ function RowImpl({
         {status?.initialized && !error ? <ChangeBadge status={status} /> : null}
       </div>
 
-      <span className="mono hidden text-right text-[11px] text-ink-faint @[560px]:block">
-        {ago(project.lastOpened) ?? "—"}
+      {/* Falls back to the last commit: "never opened" is true but useless,
+          and the commit date is already loaded. */}
+      <span
+        className="mono hidden text-right text-[11px] text-ink-faint @[560px]:block"
+        title={
+          project.lastOpened
+            ? "Last opened from Archboard"
+            : status?.lastCommit
+              ? "Last commit"
+              : undefined
+        }
+      >
+        {ago(project.lastOpened) ?? agoIso(status?.lastCommit?.date) ?? "—"}
       </span>
 
       <ProjectMenu project={project} status={status} onRemove={onRemove}>

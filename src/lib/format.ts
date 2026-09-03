@@ -15,6 +15,22 @@ export function tildePath(path: string) {
   return slash === -1 ? "~" : `~${rest.slice(slash)}`;
 }
 
+/**
+ * Shortens from the middle, keeping both ends.
+ *
+ * Branch names are the reason: `feat/context-economics` clipped from the right
+ * leaves `feat/context-e…`, and the prefix every branch shares is the least
+ * informative part of it. Keeping both ends preserves the type *and* the part
+ * that distinguishes one branch from another.
+ */
+export function middleEllipsis(text: string, max: number) {
+  if (max < 4 || text.length <= max) return text;
+  // Favour the tail: it carries the distinguishing words.
+  const head = Math.floor((max - 1) / 2);
+  const tail = max - 1 - head;
+  return `${text.slice(0, head)}\u2026${text.slice(text.length - tail)}`;
+}
+
 const UNITS: [limit: number, seconds: number, label: string][] = [
   [60, 1, "s"],
   [3600, 60, "m"],

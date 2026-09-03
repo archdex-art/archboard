@@ -262,7 +262,7 @@ function ProjectRowLine({
       </span>
       {status?.initialized ? (
         <span className="flex shrink-0 items-center gap-2.5">
-          <BranchBadge status={status} className="max-w-[110px]" />
+          <BranchBadge status={status} max={16} />
           <ChangeBadge status={status} />
         </span>
       ) : null}

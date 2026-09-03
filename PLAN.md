@@ -69,6 +69,9 @@ Rust (all I/O, all OS specifics, all trust decisions)
 - Git state is fetched when a row scrolls into view, coalesced into one `git_status_batch` per frame, 60 s TTL, `Semaphore(8)` in Rust.
 - Search is debounced 120 ms and ranked in memory.
 - Scanning streams `scan:progress`; results appear as they arrive.
+- **Columns are prioritised by what they earn.** The list narrows when the detail pane opens, so columns drop in reverse order of value: stack chips first, then the age, and the branch survives to a very narrow list because it is the reason the list exists. An earlier ordering hid branch, stack and age at the *default* window size with the pane open — the app's whole purpose, invisible out of the box.
+- **Branch names are truncated from the middle.** Real branches look like `fix/honcho-plugin-pydantic-validation`; clipping from the right leaves `fix/honcho-plu…`, which is the half every branch shares. `fix/ho…idation` keeps the type and the distinguishing words.
+- **The age column falls back to the last commit** when a project has never been opened from Archboard. "Never" is true and useless; the commit date is already loaded.
 - **Not virtualized, and measured rather than assumed.** Rendering the real row markup with the real compiled CSS in Chrome: scrolling costs ~1 µs at every size, because scroll is a compositor translate that never relayouts. Full relayout — what a window resize or opening the detail pane triggers — costs 2.9 ms at 500 rows, 5.7 ms at 1,000, **14.7 ms at 2,000** and 36 ms at 5,000. The first frame-budget miss lands near **1,500 rows**. That is the number that would justify `@tanstack/react-virtual`; virtualizing sooner would cost native `scrollIntoView` keyboard navigation and the per-row `IntersectionObserver` for nothing.
 
 ---

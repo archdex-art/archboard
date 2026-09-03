@@ -99,7 +99,7 @@ function CardImpl({
           <span className="mono text-[11.5px] text-alert">folder unavailable</span>
         ) : status?.initialized ? (
           <>
-            <BranchBadge status={status} className="max-w-[150px]" />
+            <BranchBadge status={status} max={22} />
             <SyncBadge status={status} />
             <ChangeBadge status={status} verbose />
           </>
