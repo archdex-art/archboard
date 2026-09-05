@@ -42,6 +42,12 @@ that URL anonymously — the way a visitor would — and fails if it does not co
 back. A landing page whose one job is handing over a binary has exactly one
 unacceptable bug, and this is the check for it.
 
+While the repository is private its release assets return 404 to everyone, so
+the workflow reports that and stops without deploying — a green run with a
+notice, not a failure. A repository that is private is a state this project is
+in, not a broken build. Once it is public the same push deploys, and a download
+that breaks for any other reason still fails hard.
+
 Enable Pages once, under Settings → Pages → Source: **GitHub Actions**.
 
 ### Where it will live

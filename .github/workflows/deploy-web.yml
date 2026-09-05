@@ -29,6 +29,8 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    outputs:
+      publishable: ${{ steps.gate.outputs.publishable }}
     steps:
       - uses: actions/checkout@v5
 
@@ -36,21 +38,8 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Sync the page to the latest release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node archboard-web/sync-release.mjs --write
-
-      - name: Fail if the page drifted from the release
-        run: |
-          if ! git diff --quiet -- archboard-web/index.html; then
-            echo "::error::index.html is out of date with the latest release."
-            echo "Run: node archboard-web/sync-release.mjs --write"
-            git --no-pager diff -- archboard-web/index.html
-            exit 1
-          fi
-          echo "Page matches the published release."
-
+      # These are true of the page itself and cost nothing, so they run
+      # whether or not the site is ready to go out.
       - name: Check every internal link resolves
         run: |
           cd archboard-web
@@ -60,18 +49,54 @@ jobs:
             grep -q "id=\"$id\"" index.html || { echo "::error::missing anchor #$id"; status=1; }
           done
           # Local assets: every relative href/src must exist on disk.
-          for f in $(grep -oE '(href|src)="[^"#:]+"' index.html 404.html | sed 's/.*="//;s/"//' | grep -vE '^(https?:|//|/archboard/)' | sort -u); do
+          for f in $(grep -oE '(href|src)="[^"#:]+"' index.html 404.html | sed 's/.*="//;s/"//' | grep -vE '^(https?:|//|\./)' | sort -u); do
             [ -f "$f" ] || { echo "::error::missing file $f"; status=1; }
           done
           exit $status
 
+      # A private repository serves its release assets to nobody, so the
+      # download this page advertises cannot work yet. That is a state the
+      # project is in, not a broken build — failing every push over it would
+      # only teach us to ignore a red tick.
+      - name: Decide whether the site can be published
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          private=$(gh api "repos/$GITHUB_REPOSITORY" --jq .private)
+          if [ "$private" = "true" ]; then
+            echo "publishable=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::$GITHUB_REPOSITORY is private, so the release asset returns 404 for visitors. Make the repository public to publish the download page."
+          else
+            echo "publishable=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sync the page to the latest release
+        if: steps.gate.outputs.publishable == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node archboard-web/sync-release.mjs --write
+
+      - name: Fail if the page drifted from the release
+        if: steps.gate.outputs.publishable == 'true'
+        run: |
+          if ! git diff --quiet -- archboard-web/index.html; then
+            echo "::error::index.html is out of date with the latest release."
+            echo "Run: node archboard-web/sync-release.mjs --write"
+            git --no-pager diff -- archboard-web/index.html
+            exit 1
+          fi
+          echo "Page matches the published release."
+
       - name: Upload the site
+        if: steps.gate.outputs.publishable == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: archboard-web
 
   deploy:
     needs: verify
+    if: needs.verify.outputs.publishable == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
