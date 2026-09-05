@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Merged into the generated Info.plist by the Tauri bundler.
+
+  macOS asks the user for access the first time Archboard reads a folder in
+  Desktop, Documents or Downloads — which is where most people keep their
+  projects. Without these strings the prompt says only that the app "would
+  like to access files", giving no reason to say yes. The app cannot read a
+  repository's git state until access is granted, so the prompt is the first
+  real thing a new user has to decide.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Archboard reads the git status of projects you keep on your Desktop.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Archboard reads the git status of projects you keep in Documents.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Archboard reads the git status of projects you keep in Downloads.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Archboard reads the git status of projects you keep on external drives.</string>
+</dict>
+</plist>

@@ -127,7 +127,29 @@ async fn git(dir: &Path, args: &[&str]) -> Result<std::process::Output> {
         .hint("Install the Xcode command line tools with: xcode-select --install")),
         Ok(Err(e)) => Err(AppError::new(Code::GitFailed, format!("Could not run git: {e}"))),
         Err(_) => Err(AppError::new(Code::GitFailed, "Git took too long to respond.")
-            .hint("The repository may be very large, or a lock file may be stale.")),
+            .hint(stall_hint(dir))),
+    }
+}
+
+/// macOS blocks reads of Desktop, Documents and Downloads until the user
+/// answers a permission prompt, and git simply hangs until they do. Reporting
+/// that as slowness sends people looking for a performance problem when the
+/// answer is a dialog waiting behind the window.
+fn stall_hint(dir: &Path) -> String {
+    const PROTECTED: [&str; 4] = ["Desktop", "Documents", "Downloads", "Volumes"];
+    let protected = dirs::home_dir()
+        .map(|home| {
+            PROTECTED.iter().any(|name| dir.starts_with(home.join(name)))
+        })
+        .unwrap_or(false)
+        || dir.starts_with("/Volumes");
+
+    if protected {
+        "macOS may be asking permission for this folder. Look for a prompt, or \
+         grant access in System Settings › Privacy & Security › Files and Folders."
+            .to_string()
+    } else {
+        "The repository may be very large, or a lock file may be stale.".to_string()
     }
 }
 
@@ -327,6 +349,25 @@ pub async fn branches(path: &str) -> Result<Vec<String>> {
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn a_stall_in_a_protected_folder_names_the_permission_prompt() {
+        // The first thing a new user sees is this prompt, and git hangs behind
+        // it. "The repository may be very large" would send them the wrong way.
+        let home = dirs::home_dir().unwrap();
+        for name in ["Desktop", "Documents", "Downloads"] {
+            let hint = stall_hint(&home.join(name).join("project"));
+            assert!(hint.contains("permission"), "{name}: {hint}");
+        }
+        assert!(stall_hint(Path::new("/Volumes/ext/repo")).contains("permission"));
+    }
+
+    #[test]
+    fn a_stall_anywhere_else_keeps_the_ordinary_explanation() {
+        let hint = stall_hint(Path::new("/tmp/project"));
+        assert!(hint.contains("very large"), "{hint}");
+        assert!(!hint.contains("permission"));
+    }
 
     /// A repository is untrusted input: it ships its own `.git/config`, and
     /// several git settings name a program to execute. This drives the real
