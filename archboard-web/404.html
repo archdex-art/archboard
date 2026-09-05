@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Not found — Archboard</title>
+<meta name="robots" content="noindex" />
+<meta name="color-scheme" content="dark" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+<link rel="stylesheet" href="styles.css" />
+<style>
+  /* One screen, centred, no scroll. The page has a single job: get the
+     visitor back to the thing they came for. */
+  .lost {
+    min-height: 100vh;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    text-align: center;
+    padding: 24px;
+    gap: 6px;
+  }
+  .lost__code {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+  }
+  .lost__title {
+    margin: 10px 0 0;
+    font-size: clamp(26px, 5vw, 38px);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .lost__body { margin: 12px 0 26px; color: var(--ink-dim); max-width: 44ch; }
+</style>
+</head>
+<body>
+  <main class="lost">
+    <p class="lost__code">404</p>
+    <h1 class="lost__title">That page isn&rsquo;t here</h1>
+    <p class="lost__body">
+      The link may be out of date. Everything Archboard has lives on one page.
+    </p>
+    <a class="btn btn--primary" href="./">Back to Archboard</a>
+  </main>
+</body>
+</html>

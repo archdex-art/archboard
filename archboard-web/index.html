@@ -7,13 +7,24 @@
 <meta name="description" content="A macOS launcher that shows every local git repository and the state it is in, then opens the editor, terminal, folder or remote. Free, universal, 7.3 MB." />
 <meta name="color-scheme" content="dark" />
 
+<!-- Absolute URLs, because a crawler resolves these against its own idea of
+     the origin. Change SITE_URL in deploy.yml if the site moves. -->
+<link rel="canonical" href="https://archdex-art.github.io/archboard/" />
+<meta property="og:site_name" content="Archboard" />
 <meta property="og:title" content="Archboard — see which repositories need you" />
-<meta property="og:description" content="Every local git repository and the state it is in, on one board." />
+<meta property="og:description" content="Every local git repository and the state it is in, on one board. Free for macOS." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://archdex-art.github.io/archboard/" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Archboard — see which repositories need you" />
+<meta name="twitter:description" content="Every local git repository and the state it is in, on one board." />
 
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<!-- Nothing is fetched from another origin, so the policy can say exactly
+     that. GitHub Pages cannot set response headers, so it goes in a meta. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+
+<link rel="preload" href="fonts/ibm-plex-sans-var.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="styles.css" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e1013'/%3E%3Crect x='7' y='8' width='3' height='16' rx='1.5' fill='%23f0b429'/%3E%3Crect x='13' y='8' width='12' height='3' rx='1.5' fill='%23a3a9b7'/%3E%3Crect x='13' y='14.5' width='12' height='3' rx='1.5' fill='%23555b66'/%3E%3Crect x='13' y='21' width='7' height='3' rx='1.5' fill='%23555b66'/%3E%3C/svg%3E" />
 </head>
@@ -41,7 +52,7 @@
   <!-- ─────────────────────────────── hero ─────────────────────────────── -->
   <section class="hero">
     <div class="shell hero__inner">
-      <p class="eyebrow">macOS · v0.1.0 · free</p>
+      <p class="eyebrow">macOS · v<span data-rel="version">0.1.0</span> · free</p>
 
       <h1 class="hero__title">
         Which of these<br />needs you today?
@@ -84,7 +95,7 @@
           </aside>
 
           <ol class="board" id="rows">
-            <li class="row" data-state="dirty" style="--i:0">
+            <li class="row" data-state="dirty">
               <span class="row__gutter"></span>
               <span class="row__name">AI-BrowserMemory
                 <span class="row__path">~/Desktop/AI-BrowserMemory</span>
@@ -94,7 +105,7 @@
               <span class="row__count">6 changed</span>
               <span class="row__age">1mo</span>
             </li>
-            <li class="row" data-state="dirty" style="--i:1">
+            <li class="row" data-state="dirty">
               <span class="row__gutter"></span>
               <span class="row__name">SIH
                 <span class="row__path">~/Desktop/SIH</span>
@@ -104,7 +115,7 @@
               <span class="row__count">11 changed</span>
               <span class="row__age">5d</span>
             </li>
-            <li class="row" data-state="dirty" style="--i:2">
+            <li class="row" data-state="dirty">
               <span class="row__gutter"></span>
               <span class="row__name">Portfolio
                 <span class="row__path">~/Desktop/Portfolio</span>
@@ -114,7 +125,7 @@
               <span class="row__count">9 changed</span>
               <span class="row__age">1mo</span>
             </li>
-            <li class="row" style="--i:3">
+            <li class="row">
               <span class="row__gutter"></span>
               <span class="row__name">AIWorkspace
                 <span class="row__path">~/Desktop/AIWorkspace</span>
@@ -124,7 +135,7 @@
               <span class="row__count row__count--clean">clean</span>
               <span class="row__age">3d</span>
             </li>
-            <li class="row" style="--i:4">
+            <li class="row">
               <span class="row__gutter"></span>
               <span class="row__name">hermes-agent
                 <span class="row__path">~/Desktop/hermes-agent</span>
@@ -134,7 +145,7 @@
               <span class="row__count row__count--clean">clean</span>
               <span class="row__age">1mo</span>
             </li>
-            <li class="row" style="--i:5">
+            <li class="row">
               <span class="row__gutter"></span>
               <span class="row__name">arch_Terminal
                 <span class="row__path">~/Desktop/arch_Terminal</span>
@@ -144,7 +155,7 @@
               <span class="row__count row__count--clean">clean</span>
               <span class="row__age">2w</span>
             </li>
-            <li class="row" style="--i:6">
+            <li class="row">
               <span class="row__gutter"></span>
               <span class="row__name">SuperSearch
                 <span class="row__path">~/Desktop/SuperSearch</span>
@@ -154,7 +165,7 @@
               <span class="row__count row__count--clean">clean</span>
               <span class="row__age">1mo</span>
             </li>
-            <li class="row" style="--i:7">
+            <li class="row">
               <span class="row__gutter"></span>
               <span class="row__name">ArchLense
                 <span class="row__path">~/Desktop/ArchLense</span>
@@ -172,7 +183,7 @@
         <a class="btn btn--primary" href="https://github.com/archdex-art/archboard/releases/download/v0.1.0/Archboard_0.1.0_universal.dmg" data-dl>
           Download for macOS
         </a>
-        <p class="cta__meta">Universal · 7.3&nbsp;MB · macOS 11 or later</p>
+        <p class="cta__meta">Universal · <span data-rel="size">7.7</span>&nbsp;MB · macOS 11 or later</p>
       </div>
       <p class="cta__caveat">
         Not notarized yet — macOS will block the first launch.
@@ -316,9 +327,9 @@
       <h2 class="section__title" id="dl-h">Put it on your Mac</h2>
 
       <a class="btn btn--primary btn--lg" href="https://github.com/archdex-art/archboard/releases/download/v0.1.0/Archboard_0.1.0_universal.dmg" data-dl>
-        Download Archboard 0.1.0
+        Download Archboard <span data-rel="version">0.1.0</span>
       </a>
-      <p class="cta__meta">Universal binary · Apple&nbsp;Silicon and Intel · 7.3&nbsp;MB</p>
+      <p class="cta__meta">Universal binary · Apple&nbsp;Silicon and Intel · <span data-rel="size">7.7</span>&nbsp;MB</p>
 
       <div class="gate" id="gatekeeper">
         <p class="gate__head">First launch will be blocked</p>

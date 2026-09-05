@@ -16,20 +16,30 @@ document.documentElement.classList.add("js");
 const board = document.getElementById("rows");
 
 if (board) {
+  const reveal = () => board.classList.add("is-live");
+
   if ("IntersectionObserver" in window) {
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
-          board.classList.add("is-live");
+          reveal();
           observer.disconnect();
         }
       },
       { threshold: 0.12 },
     );
     observer.observe(board);
+
+    /*
+      The rows start hidden so they can arrive in sequence, which makes the
+      observer load-bearing: on a short window, or any case where 12% of the
+      board never comes into view, they would stay hidden for good. Content
+      must not depend on an animation trigger, so this shows them regardless.
+    */
+    setTimeout(reveal, 1500);
   } else {
-    board.classList.add("is-live");
+    reveal();
   }
 }
 

@@ -1,0 +1,81 @@
+name: Deploy website
+
+# The download page is published only after the file it advertises has been
+# proved reachable. A landing page whose one job is handing over a binary has
+# exactly one unacceptable bug, and this is the gate for it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "archboard-web/**"
+      - ".github/workflows/deploy-web.yml"
+  # Cutting a release changes the version and size the page states, so the
+  # page is rebuilt when one is published.
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue instead, and let a newer one win.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Sync the page to the latest release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node archboard-web/sync-release.mjs --write
+
+      - name: Fail if the page drifted from the release
+        run: |
+          if ! git diff --quiet -- archboard-web/index.html; then
+            echo "::error::index.html is out of date with the latest release."
+            echo "Run: node archboard-web/sync-release.mjs --write"
+            git --no-pager diff -- archboard-web/index.html
+            exit 1
+          fi
+          echo "Page matches the published release."
+
+      - name: Check every internal link resolves
+        run: |
+          cd archboard-web
+          status=0
+          # Fragment targets: every #anchor must exist as an id on the page.
+          for id in $(grep -oE 'href="#[a-zA-Z0-9_-]+"' index.html | sed 's/href="#//;s/"//' | sort -u); do
+            grep -q "id=\"$id\"" index.html || { echo "::error::missing anchor #$id"; status=1; }
+          done
+          # Local assets: every relative href/src must exist on disk.
+          for f in $(grep -oE '(href|src)="[^"#:]+"' index.html 404.html | sed 's/.*="//;s/"//' | grep -vE '^(https?:|//|/archboard/)' | sort -u); do
+            [ -f "$f" ] || { echo "::error::missing file $f"; status=1; }
+          done
+          exit $status
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: archboard-web
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
