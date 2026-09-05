@@ -57,11 +57,21 @@ jobs:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: Archboard ${{ github.event.inputs.tag || github.ref_name }}
           releaseBody: |
-            Universal macOS build.
+            Universal macOS build (Apple Silicon and Intel), macOS 11 or later.
 
-            This build is ad-hoc signed, not notarized. macOS will refuse to
-            open it on first launch: right-click the app and choose Open, or run
-            `xattr -dr com.apple.quarantine /Applications/Archboard.app`.
+            **This build is ad-hoc signed, not notarized**, so macOS will refuse
+            to open it on first launch.
+
+            The reliable way to allow it, on any macOS version:
+
+            ```sh
+            xattr -dr com.apple.quarantine /Applications/Archboard.app
+            ```
+
+            On macOS 14 and earlier you can instead right-click the app and
+            choose Open. That shortcut was removed in macOS 15; there, use the
+            command above, or open System Settings › Privacy & Security and
+            click "Open Anyway" after the first blocked attempt.
           releaseDraft: true
           prerelease: false
           # One universal binary rather than two downloads.
