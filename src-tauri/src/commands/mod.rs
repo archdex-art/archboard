@@ -441,6 +441,27 @@ pub fn remove_scan_root(db: State<'_, Db>, id: i64) -> Result<Vec<ScanRoot>> {
     db::list_scan_roots(&conn)
 }
 
+/// Seeds common macOS developer directories as scan roots on a fresh install.
+/// Only adds roots when none exist yet, making it idempotent.
+#[tauri::command]
+pub fn seed_default_scan_roots(db: State<'_, Db>) -> Result<Vec<ScanRoot>> {
+    let conn = db.conn();
+    let existing = db::list_scan_roots(&conn)?;
+    if !existing.is_empty() {
+        return Ok(existing);
+    }
+    let home = dirs::home_dir()
+        .ok_or_else(|| AppError::new(Code::Invalid, "Could not locate your home folder."))?;
+    for name in &["Projects", "Developer", "Code", "dev", "Desktop", "Work", "repos", "src"] {
+        let dir = home.join(name);
+        if dir.is_dir() {
+            let canonical = dir.canonicalize().unwrap_or(dir);
+            db::add_scan_root(&conn, &canonical.to_string_lossy(), 3)?;
+        }
+    }
+    db::list_scan_roots(&conn)
+}
+
 /// Runs the walk off the UI thread, streaming `scan:progress` and finishing
 /// with `scan:done`. Nothing is written to the database: the payload is a list
 /// of candidates for the user to approve.
@@ -575,4 +596,27 @@ pub fn run_command(db: State<'_, Db>, id: i64) -> Result<()> {
     let conn = db.conn();
     let saved = db::get_command(&conn, id)?;
     db::touch_project(&conn, saved.project_id)
+}
+
+/// Opens the IDE and runs every workspace command in terminal windows.
+#[tauri::command]
+pub fn launch_workspace(db: State<'_, Db>, id: i64, launcher_id: Option<i64>) -> Result<()> {
+    let (ide, terminal, path, ws_commands) = {
+        let conn = db.conn();
+        let project = db::get_project(&conn, id)?;
+        let ide = launcher::resolve(&conn, LauncherKind::Ide, launcher_id, project.default_ide_id)?;
+        let terminal = launcher::resolve(&conn, LauncherKind::Terminal, None, None)?;
+        let cmds = db::workspace_commands(&conn, id)?;
+        (ide, terminal, project.path, cmds)
+    };
+
+    let dir = Path::new(&path);
+    launcher::launch(&ide, dir)?;
+
+    for cmd in &ws_commands {
+        runner::run(&terminal, dir, &cmd.command)?;
+    }
+
+    let conn = db.conn();
+    db::touch_project(&conn, id)
 }

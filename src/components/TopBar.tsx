@@ -1,18 +1,26 @@
-import { ArrowDownUp, LayoutGrid, List, Plus, Search, Settings2, Telescope } from "lucide-react";
+import { ArrowDownUp, Layers, LayoutGrid, List, Plus, Search, Settings2, Telescope } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { cn } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/controls";
 import { Menu, MenuCheckItem, MenuContent, MenuLabel, MenuTrigger } from "@/components/ui/menu";
 import { useBindings, useShortcuts } from "@/features/shortcuts/useShortcuts";
 import { pretty } from "@/lib/accelerator";
-import { useApp, type SortMode } from "@/stores/app";
+import { useApp, type GroupMode, type SortMode } from "@/stores/app";
 
 const SORTS: [SortMode, string][] = [
   ["frecency", "Most used"],
   ["recent", "Recently opened"],
   ["name", "Name"],
   ["changes", "Most changes"],
+];
+
+const GROUPS: [GroupMode, string][] = [
+  ["none", "None"],
+  ["language", "Language"],
+  ["status", "Status"],
+  ["directory", "Directory"],
 ];
 
 export function TopBar({
@@ -30,6 +38,8 @@ export function TopBar({
   const setSort = useApp((s) => s.setSort);
   const view = useApp((s) => s.view);
   const setView = useApp((s) => s.setView);
+  const group = useApp((s) => s.group);
+  const setGroup = useApp((s) => s.setGroup);
 
   const bindings = useBindings();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +97,27 @@ export function TopBar({
             <MenuLabel>Sort by</MenuLabel>
             {SORTS.map(([id, label]) => (
               <MenuCheckItem key={id} checked={sort === id} onSelect={() => setSort(id)}>
+                {label}
+              </MenuCheckItem>
+            ))}
+          </MenuContent>
+        </Menu>
+
+        <Menu>
+          <MenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Group projects"
+              className={cn("no-drag", group !== "none" && "text-accent")}
+            >
+              <Layers className="h-3.5 w-3.5" />
+            </Button>
+          </MenuTrigger>
+          <MenuContent>
+            <MenuLabel>Group by</MenuLabel>
+            {GROUPS.map(([id, label]) => (
+              <MenuCheckItem key={id} checked={group === id} onSelect={() => setGroup(id)}>
                 {label}
               </MenuCheckItem>
             ))}

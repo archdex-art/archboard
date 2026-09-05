@@ -202,9 +202,39 @@ The line this stays on: **Archboard hands off and forgets.** It does not own the
 - **The window is left alive on purpose.** After the command, the script `exec`s a login shell in the project, so output survives and the user is somewhere useful. The cost is Terminal's "terminate running processes?" prompt on close, since the shell is not the one it started. Closing the window instead would take a short command's output with it, which is the worse of the two.
 - **Capability is proven, not assumed.** Verified here: Terminal.app executes a `.command` file, and **Warp does not** — `open` still exits 0. So the runner waits for the script's own marker and, if it never appears, says which terminal refused rather than leaving the user staring at a window where nothing happened.
 
+### Workspace launch
+
+A command can be marked as part of the **workspace**: one click then opens the editor and runs every marked command, each in its own terminal window.
+
+This is the one thing the category does not do. Raycast opens an editor; `sesh` opens a terminal; neither restores a working state. "Open the editor *and* start the dev server *and* start the test watcher" is the action a developer actually performs at the start of a session, and it was three clicks and two windows of typing.
+
+It reuses the launch path above rather than growing a second one: the same script, the same proof-of-execution timeout, the same hands-off rule. A workspace launch is `open IDE` followed by N ordinary command runs, and it touches `last_opened` exactly once. Unmarked commands are untouched — the marked set is a filter over commands the user already wrote, not a new kind of thing to author.
+
 ---
 
-## 13. Out of scope
+## 13. Grouping
+
+The list can be partitioned by language, parent folder, or git status, with a sticky heading and count per group.
+
+**Status is the mode that earns the feature.** `Uncommitted work` sorts above `Clean` above `No git`, which puts unfinished work at the top of the board without the user searching for it — the same question the amber gutter answers per row, answered for the whole list at once.
+
+- **Grouping partitions, it never re-sorts.** Order within a group is whatever the active sort produced. Grouping that quietly reordered rows would make the sort control a lie.
+- **A row whose git status has not loaded is `Clean`, not dirty.** Status is read lazily as rows scroll into view, so an unvisited row has nothing. Guessing "dirty" would fill the one group that exists for real signal with rows that merely have not been read yet.
+- **Ahead/behind is not uncommitted work.** Diverging from a remote is a sync fact, not unfinished editing, and it stays out of the group people scan for "what did I leave open".
+
+---
+
+## 14. First run
+
+An empty board with two buttons is a correct empty state and a poor introduction: it explains neither what the app is for nor that it has a global shortcut.
+
+The first launch shows a single sentence — *your projects, their git state, one glance* — the two things a new user can do, and the hotkey. **Find my projects** seeds the developer directories that actually exist on this Mac (`~/Projects`, `~/Developer`, `~/Code`, `~/dev`, `~/Desktop`, `~/Work`, `~/repos`, `~/src`) and opens the scan sheet. Nothing is added without the checklist: discovery is still a proposal.
+
+First run is `no projects and never onboarded` — not just the absent setting. An existing board with an old database is not a new user, and must never be shown a welcome screen over the top of their own projects.
+
+---
+
+## 15. Out of scope
 
 Commit/push/pull UI, branch management, diff viewer, Docker controls, build/run panes, hosting-provider APIs, cloud sync, team collaboration. Archboard's job ends the moment your editor opens; a launcher that grows a git client becomes a slow launcher and a bad git client.
 

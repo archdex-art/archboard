@@ -14,6 +14,7 @@ export type FilterId =
 
 export type SortMode = "frecency" | "recent" | "name" | "changes";
 export type ViewMode = "list" | "grid";
+export type GroupMode = "none" | "language" | "status" | "directory";
 export type SettingsTab = "general" | "shortcuts" | "ides" | "terminals" | "folders";
 
 export interface Toast {
@@ -34,11 +35,13 @@ interface AppState {
   scanRoots: ScanRoot[];
   settings: Record<string, string>;
   loaded: boolean;
+  firstRun: boolean;
 
   query: string;
   filter: FilterId;
   sort: SortMode;
   view: ViewMode;
+  group: GroupMode;
   selectedId: number | null;
   settingsTab: SettingsTab | null;
   toasts: Toast[];
@@ -57,10 +60,12 @@ interface AppState {
   setFilter: (filter: FilterId) => void;
   setSort: (sort: SortMode) => void;
   setView: (view: ViewMode) => void;
+  setGroup: (group: GroupMode) => void;
   select: (id: number | null) => void;
   openSettings: (tab?: SettingsTab) => void;
   closeSettings: () => void;
   saveSetting: (key: string, value: string) => Promise<void>;
+  setFirstRunDone: () => Promise<void>;
 
   notify: (toast: Omit<Toast, "id">) => void;
   fail: (error: unknown, extra?: Partial<Toast>) => void;
@@ -79,11 +84,13 @@ export const useApp = create<AppState>((set, get) => ({
   scanRoots: [],
   settings: {},
   loaded: false,
+  firstRun: true,
 
   query: "",
   filter: "all",
   sort: "frecency",
   view: "list",
+  group: "none",
   selectedId: null,
   settingsTab: null,
   toasts: [],
@@ -101,8 +108,10 @@ export const useApp = create<AppState>((set, get) => ({
         tags,
         settings,
         loaded: true,
+        firstRun: !(("onboarded" in settings) || projects.length > 0),
         sort: (settings.sort as SortMode) ?? "frecency",
         view: (settings.view as ViewMode) ?? "list",
+        group: (settings.group as GroupMode) ?? "none",
       });
       const [launchers, scanRoots] = await Promise.all([
         api.detectLaunchers(),
@@ -218,6 +227,10 @@ export const useApp = create<AppState>((set, get) => ({
     set({ view });
     void get().saveSetting("view", view);
   },
+  setGroup(group) {
+    set({ group });
+    void get().saveSetting("group", group);
+  },
   select: (selectedId) => set({ selectedId }),
   openSettings: (tab = "general") => set({ settingsTab: tab }),
   closeSettings: () => set({ settingsTab: null }),
@@ -229,6 +242,11 @@ export const useApp = create<AppState>((set, get) => ({
     } catch (e) {
       get().fail(e);
     }
+  },
+
+  async setFirstRunDone() {
+    set({ firstRun: false });
+    await get().saveSetting("onboarded", "true");
   },
 
   notify(toast) {

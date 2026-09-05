@@ -429,7 +429,7 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
 
 pub fn list_commands(conn: &Connection, project_id: i64) -> Result<Vec<ProjectCommand>> {
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, label, command, position, created_at \
+        "SELECT id, project_id, label, command, position, in_workspace, created_at \
          FROM project_commands WHERE project_id = ?1 ORDER BY position, id",
     )?;
     let rows = stmt
@@ -440,7 +440,8 @@ pub fn list_commands(conn: &Connection, project_id: i64) -> Result<Vec<ProjectCo
                 label: r.get(2)?,
                 command: r.get(3)?,
                 position: r.get(4)?,
-                created_at: r.get(5)?,
+                in_workspace: r.get(5)?,
+                created_at: r.get(6)?,
             })
         })?
         .collect::<Result<_, rusqlite::Error>>()?;
@@ -449,7 +450,7 @@ pub fn list_commands(conn: &Connection, project_id: i64) -> Result<Vec<ProjectCo
 
 pub fn get_command(conn: &Connection, id: i64) -> Result<ProjectCommand> {
     conn.query_row(
-        "SELECT id, project_id, label, command, position, created_at \
+        "SELECT id, project_id, label, command, position, in_workspace, created_at \
          FROM project_commands WHERE id = ?1",
         params![id],
         |r| {
@@ -459,7 +460,8 @@ pub fn get_command(conn: &Connection, id: i64) -> Result<ProjectCommand> {
                 label: r.get(2)?,
                 command: r.get(3)?,
                 position: r.get(4)?,
-                created_at: r.get(5)?,
+                in_workspace: r.get(5)?,
+                created_at: r.get(6)?,
             })
         },
     )
@@ -475,8 +477,8 @@ pub fn upsert_command(conn: &Connection, c: &ProjectCommand) -> Result<i64> {
     }
     if c.id > 0 {
         conn.execute(
-            "UPDATE project_commands SET label = ?2, command = ?3 WHERE id = ?1",
-            params![c.id, label, command],
+            "UPDATE project_commands SET label = ?2, command = ?3, in_workspace = ?4 WHERE id = ?1",
+            params![c.id, label, command, c.in_workspace],
         )?;
         return Ok(c.id);
     }
@@ -486,9 +488,9 @@ pub fn upsert_command(conn: &Connection, c: &ProjectCommand) -> Result<i64> {
         |r| r.get(0),
     )?;
     conn.execute(
-        "INSERT INTO project_commands (project_id, label, command, position, created_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![c.project_id, label, command, next, now()],
+        "INSERT INTO project_commands (project_id, label, command, position, in_workspace, created_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![c.project_id, label, command, next, c.in_workspace, now()],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -496,4 +498,25 @@ pub fn upsert_command(conn: &Connection, c: &ProjectCommand) -> Result<i64> {
 pub fn delete_command(conn: &Connection, id: i64) -> Result<()> {
     conn.execute("DELETE FROM project_commands WHERE id = ?1", params![id])?;
     Ok(())
+}
+
+pub fn workspace_commands(conn: &Connection, project_id: i64) -> Result<Vec<ProjectCommand>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, project_id, label, command, position, in_workspace, created_at \
+         FROM project_commands WHERE project_id = ?1 AND in_workspace = 1 ORDER BY position, id",
+    )?;
+    let rows = stmt
+        .query_map(params![project_id], |r| {
+            Ok(ProjectCommand {
+                id: r.get(0)?,
+                project_id: r.get(1)?,
+                label: r.get(2)?,
+                command: r.get(3)?,
+                position: r.get(4)?,
+                in_workspace: r.get(5)?,
+                created_at: r.get(6)?,
+            })
+        })?
+        .collect::<Result<_, rusqlite::Error>>()?;
+    Ok(rows)
 }

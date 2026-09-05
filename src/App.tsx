@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { CommandPalette } from "@/components/CommandPalette";
 import { DetailPane } from "@/components/DetailPane";
@@ -14,6 +14,7 @@ import { useShortcuts } from "@/features/shortcuts/useShortcuts";
 import type { SettingsTab } from "@/stores/app";
 import { Dashboard } from "@/pages/Dashboard";
 import { useApp } from "@/stores/app";
+import { api } from "@/lib/ipc";
 
 const REFRESH_INTERVAL_MS = 60_000;
 
@@ -31,6 +32,14 @@ export default function App() {
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const handleFirstRunScan = useCallback(async () => {
+    try {
+      await api.seedDefaultScanRoots();
+      await useApp.getState().reloadScanRoots();
+    } catch { /* best-effort seeding */ }
+    setScanOpen(true);
+  }, []);
+
   const addProject = useAddProject();
 
   useEffect(() => {
@@ -101,7 +110,11 @@ export default function App() {
         <div className="flex min-h-0 flex-1">
           <Sidebar />
           <main className="flex min-w-0 flex-1 flex-col">
-            <Dashboard onAdd={() => void addProject.start()} onScan={() => setScanOpen(true)} />
+            <Dashboard
+              onAdd={() => void addProject.start()}
+              onScan={() => setScanOpen(true)}
+              onFirstRunScan={() => void handleFirstRunScan()}
+            />
           </main>
           {selected ? <DetailPane project={selected} onClose={() => select(null)} /> : null}
         </div>

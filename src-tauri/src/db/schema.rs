@@ -77,6 +77,10 @@ CREATE TABLE project_commands (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX idx_project_commands_project ON project_commands(project_id, position);
+    "#,
+    // 3 — workspace flag on saved commands
+    r#"
+ALTER TABLE project_commands ADD COLUMN in_workspace INTEGER NOT NULL DEFAULT 0;
 "#,
 ];
 

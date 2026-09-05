@@ -159,5 +159,7 @@ pub struct ProjectCommand {
     #[serde(default)]
     pub position: i64,
     #[serde(default)]
+    pub in_workspace: bool,
+    #[serde(default)]
     pub created_at: i64,
 }

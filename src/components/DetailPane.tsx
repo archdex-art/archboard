@@ -2,6 +2,7 @@ import {
   FolderOpen,
   Globe,
   RefreshCw,
+  Rocket,
   SquareTerminal,
   Star,
   X,
@@ -45,12 +46,14 @@ export function DetailPane({ project, onClose }: { project: Project; onClose: ()
   const [commits, setCommits] = useState<Commit[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
   const [notes, setNotes] = useState(project.notes ?? "");
+  const [wsCount, setWsCount] = useState(0);
 
   useEffect(() => {
     setDetail(null);
     setCommits([]);
     setBranches([]);
     setNotes(project.notes ?? "");
+    setWsCount(0);
     let live = true;
     void api
       .projectDetail(project.id)
@@ -173,6 +176,29 @@ export function DetailPane({ project, onClose }: { project: Project; onClose: ()
         </Button>
       </div>
 
+      {wsCount > 0 ? (
+        <div className="px-4 pb-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            onClick={async () => {
+              try {
+                await api.launchWorkspace(project.id);
+              } catch (e) {
+                fail(e);
+              }
+            }}
+          >
+            <Rocket className="h-3.5 w-3.5" />
+            Launch workspace
+            <span className="ml-auto text-[10.5px] text-ink-faint">
+              IDE + {wsCount} {wsCount === 1 ? "command" : "commands"}
+            </span>
+          </Button>
+        </div>
+      ) : null}
+
       <Block title="Technology">
         {stack.length === 0 && !detail?.detection.tags.length ? (
           <p className="text-[12.5px] text-ink-faint">Nothing recognisable at the top level.</p>
@@ -278,7 +304,10 @@ export function DetailPane({ project, onClose }: { project: Project; onClose: ()
       ) : null}
 
       <Block title="Commands">
-        <CommandsBlock projectId={project.id} />
+        <CommandsBlock
+          projectId={project.id}
+          onCommandsChange={(cmds) => setWsCount(cmds.filter((c) => c.inWorkspace).length)}
+        />
       </Block>
 
       <Block title="Notes">

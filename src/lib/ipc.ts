@@ -87,6 +87,7 @@ export const api = {
     call<ScanRoot[]>("update_scan_root", { id, depth, enabled }),
   removeScanRoot: (id: number) => call<ScanRoot[]>("remove_scan_root", { id }),
   scanRoots: () => call<void>("scan_roots"),
+  seedDefaultScanRoots: () => call<ScanRoot[]>("seed_default_scan_roots"),
 
   // saved commands
   listCommands: (projectId: number) => call<ProjectCommand[]>("list_commands", { projectId }),
@@ -94,7 +95,9 @@ export const api = {
     call<ProjectCommand[]>("upsert_command", { command }),
   deleteCommand: (id: number, projectId: number) =>
     call<ProjectCommand[]>("delete_command", { id, projectId }),
-  runCommand: (id: number) => call<void>("run_command", { id }),
+  runCommand: (id: number) => call<void>('run_command', { id }),
+  launchWorkspace: (id: number, launcherId?: number) =>
+    call<void>('launch_workspace', { id, launcherId }),
 
   // window and global shortcut
   setGlobalShortcut: (accelerator: string | null) =>

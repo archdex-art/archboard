@@ -106,6 +106,7 @@ pub fn run() {
             commands::update_scan_root,
             commands::remove_scan_root,
             commands::scan_roots,
+            commands::seed_default_scan_roots,
             commands::get_settings,
             commands::set_setting,
             commands::set_global_shortcut,
@@ -115,6 +116,7 @@ pub fn run() {
             commands::upsert_command,
             commands::delete_command,
             commands::run_command,
+            commands::launch_workspace,
         ])
         .run(tauri::generate_context!())
         .expect("error while running archboard");

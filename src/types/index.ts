@@ -154,5 +154,6 @@ export interface ProjectCommand {
   /** The user's own text, run in their shell exactly as typed. */
   command: string;
   position: number;
+  inWorkspace: boolean;
   createdAt: number;
 }

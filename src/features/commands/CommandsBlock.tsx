@@ -1,7 +1,8 @@
-import { Play, Plus, Trash2 } from "lucide-react";
+import { Play, Plus, Rocket, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/controls";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/ipc";
 import { useApp } from "@/stores/app";
@@ -14,7 +15,13 @@ import type { ProjectCommand } from "@/types";
  * does not own the process: there is no stop button and no output here,
  * because that is what the terminal is for.
  */
-export function CommandsBlock({ projectId }: { projectId: number }) {
+export function CommandsBlock({
+  projectId,
+  onCommandsChange,
+}: {
+  projectId: number;
+  onCommandsChange?: (commands: ProjectCommand[]) => void;
+}) {
   const [commands, setCommands] = useState<ProjectCommand[]>([]);
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
@@ -34,6 +41,10 @@ export function CommandsBlock({ projectId }: { projectId: number }) {
     };
   }, [projectId]);
 
+  useEffect(() => {
+    onCommandsChange?.(commands);
+  }, [commands, onCommandsChange]);
+
   const save = useCallback(async () => {
     if (!label.trim() || !text.trim()) return;
     try {
@@ -44,6 +55,7 @@ export function CommandsBlock({ projectId }: { projectId: number }) {
           label: label.trim(),
           command: text.trim(),
           position: 0,
+          inWorkspace: false,
           createdAt: 0,
         }),
       );
@@ -65,6 +77,19 @@ export function CommandsBlock({ projectId }: { projectId: number }) {
 
       {commands.map((command) => (
         <div key={command.id} className="group flex items-center gap-2">
+          <Checkbox
+            checked={command.inWorkspace}
+            aria-label={`Include "${command.label}" in workspace launch`}
+            onCheckedChange={async () => {
+              try {
+                setCommands(
+                  await api.upsertCommand({ ...command, inWorkspace: !command.inWorkspace }),
+                );
+              } catch (e) {
+                fail(e);
+              }
+            }}
+          />
           <Button
             variant="secondary"
             size="sm"
@@ -82,9 +107,11 @@ export function CommandsBlock({ projectId }: { projectId: number }) {
               }
             }}
           >
-            <Play className="h-3 w-3 shrink-0" strokeWidth={2.5} />
-            {/* The name is what the user scans for, so it keeps its width and
-                the command text gives way first. */}
+            {command.inWorkspace ? (
+              <Rocket className="h-3 w-3 shrink-0 text-ink" strokeWidth={2.5} />
+            ) : (
+              <Play className="h-3 w-3 shrink-0" strokeWidth={2.5} />
+            )}
             <span className="shrink-0 truncate">{command.label}</span>
             <span className="mono ml-auto min-w-0 truncate pl-3 text-right text-[10.5px] text-ink-faint">
               {command.command}

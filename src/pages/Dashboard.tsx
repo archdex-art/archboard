@@ -1,19 +1,21 @@
 import { FolderGit2, Telescope } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { GroupedList } from "@/components/GroupedList";
 import { ProjectCard } from "@/components/ProjectCard";
 import { ProjectRow } from "@/components/ProjectRow";
+import { Welcome } from "@/components/Welcome";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useActions } from "@/features/projects/useActions";
-import { useProjectList } from "@/features/projects/useProjectList";
+import { useGroupedProjects, useProjectList } from "@/features/projects/useProjectList";
 import { useShortcuts } from "@/features/shortcuts/useShortcuts";
 import { pretty } from "@/lib/accelerator";
 import { tildePath } from "@/lib/format";
 import { useApp } from "@/stores/app";
 import type { Project } from "@/types";
 
-export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => void }) {
+export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void; onScan: () => void; onFirstRunScan: () => void }) {
   const projects = useProjectList();
   const git = useApp((s) => s.git);
   const gitErrors = useApp((s) => s.gitErrors);
@@ -24,6 +26,8 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
   const select = useApp((s) => s.select);
   const refreshGit = useApp((s) => s.refreshGit);
   const loaded = useApp((s) => s.loaded);
+  const firstRun = useApp((s) => s.firstRun);
+  const setFirstRunDone = useApp((s) => s.setFirstRunDone);
   const globalShortcut = useApp((s) => s.settings.global_shortcut ?? "Alt+K");
   const actions = useActions();
 
@@ -98,6 +102,7 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
     refresh: () => selectedProject && void actions.refresh(selectedProject),
     favorite: () => selectedProject && void actions.toggleFavorite(selectedProject),
   });
+  const groups = useGroupedProjects(projects);
 
   if (!loaded) {
     // Placeholder rows rather than an empty void: the board is about to have
@@ -119,6 +124,15 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
   }
 
   if (projects.length === 0) {
+    if (firstRun) {
+      return (
+        <Welcome
+          globalShortcut={globalShortcut}
+          onFind={() => { void setFirstRunDone(); onFirstRunScan(); }}
+          onAdd={() => { void setFirstRunDone(); onAdd(); }}
+        />
+      );
+    }
     const empty = query || filter !== "all";
     return (
       <div className="flex flex-1 items-center justify-center px-8">
@@ -143,8 +157,6 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
                   Find projects
                 </Button>
               </div>
-              {/* The global shortcut is the whole point of the app and there is
-                  nowhere else a new user would discover it. */}
               <p className="mt-5 text-[12px] text-ink-faint">
                 Press <kbd className="mono text-ink-dim">{pretty(globalShortcut)}</kbd> from any
                 application to summon Archboard.
@@ -155,7 +167,6 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
       </div>
     );
   }
-
   const shared = (project: Project) => ({
     project,
     status: git[project.id],
@@ -172,24 +183,34 @@ export function Dashboard({ onAdd, onScan }: { onAdd: () => void; onScan: () => 
       <div
         role="listbox"
         aria-label="Projects"
-        // Focusable with an active descendant so assistive technology follows
-        // the same cursor the arrow keys move. The key handler stays on the
-        // window, because a launcher's shortcuts should work without first
-        // clicking the list.
         tabIndex={0}
         aria-activedescendant={selectedId !== null ? `project-${selectedId}` : undefined}
         className={
-          view === "list"
+          groups || view === "list"
             ? "@container flex-1 overflow-y-auto px-2 py-2 outline-none"
             : "@container grid flex-1 grid-cols-[repeat(auto-fill,minmax(268px,1fr))] content-start gap-2.5 overflow-y-auto p-3 outline-none"
         }
       >
-        {projects.map((project) =>
-          view === "list" ? (
-            <ProjectRow key={project.id} {...shared(project)} />
-          ) : (
-            <ProjectCard key={project.id} {...shared(project)} />
-          ),
+        {groups ? (
+          <GroupedList
+            groups={groups}
+            view={view}
+            selectedId={selectedId}
+            git={git}
+            gitErrors={gitErrors}
+            onSelect={select}
+            onOpen={openDefault}
+            onVisible={onVisible}
+            onRemove={setPendingRemoval}
+          />
+        ) : (
+          projects.map((project) =>
+            view === "list" ? (
+              <ProjectRow key={project.id} {...shared(project)} />
+            ) : (
+              <ProjectCard key={project.id} {...shared(project)} />
+            ),
+          )
         )}
       </div>
 
