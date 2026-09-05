@@ -141,3 +141,37 @@ describe("groupProjects by language and directory", () => {
     expect(groupProjects([], "language", {})).toEqual([]);
   });
 });
+
+describe("grouped order is the navigation order", () => {
+  // Arrow keys step through `groups.flatMap(g => g.projects)`. If that is not
+  // exactly what the list renders, the cursor jumps to a distant row.
+  const board = [
+    project({ id: 1, name: "dirty-a" }),
+    project({ id: 2, name: "clean-a" }),
+    project({ id: 3, name: "dirty-b" }),
+    project({ id: 4, name: "clean-b" }),
+    project({ id: 5, name: "no-git", gitInitialized: false }),
+  ];
+  const git = { 1: status({ modified: 1 }), 2: status(), 3: status({ untracked: 2 }), 4: status() };
+
+  test("flattening visits every project exactly once", () => {
+    const flat = groupProjects(board, "status", git).flatMap((g) => g.projects);
+    expect(flat.map((p) => p.id).sort()).toEqual([1, 2, 3, 4, 5]);
+    expect(flat).toHaveLength(board.length);
+  });
+
+  test("flattened order follows the headings, not the incoming sort", () => {
+    const flat = groupProjects(board, "status", git).flatMap((p) => p.projects);
+    // Uncommitted work first, then clean, then no git — each keeping its
+    // relative order from the sorted input.
+    expect(flat.map((p) => p.id)).toEqual([1, 3, 2, 4, 5]);
+  });
+
+  test("ungrouped navigation order is simply the sorted list", () => {
+    // `useGroupedProjects` returns null for "none"; the caller then walks the
+    // sorted array unchanged. Guard the assumption that grouping is the only
+    // thing that reorders.
+    const flat = groupProjects(board, "language", {}).flatMap((g) => g.projects);
+    expect(flat.map((p) => p.id)).toEqual([1, 2, 3, 4, 5]);
+  });
+});

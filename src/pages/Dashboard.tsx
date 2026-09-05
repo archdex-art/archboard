@@ -1,5 +1,5 @@
 import { FolderGit2, Telescope } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GroupedList } from "@/components/GroupedList";
 import { ProjectCard } from "@/components/ProjectCard";
@@ -53,14 +53,24 @@ export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void
 
   const openDefault = useCallback((project: Project) => void actions.openIde(project), [actions]);
 
+  const groups = useGroupedProjects(projects);
+
+  // Arrow keys have to walk what the eye sees. Grouping re-partitions the list,
+  // so the rendered order is the groups concatenated — stepping through the
+  // flat sort instead makes the cursor jump between distant rows.
+  const ordered = useMemo(
+    () => (groups ? groups.flatMap((group) => group.projects) : projects),
+    [groups, projects],
+  );
+
   // The list always has a cursor, so arrow keys and ⌘T / ⌘I work the instant
   // the window opens. Only ever done once: closing the pane must stay closed.
   const primed = useRef(false);
   useEffect(() => {
-    if (primed.current || projects.length === 0) return;
+    if (primed.current || ordered.length === 0) return;
     primed.current = true;
-    if (useApp.getState().selectedId === null) select(projects[0].id);
-  }, [projects, select]);
+    if (useApp.getState().selectedId === null) select(ordered[0].id);
+  }, [ordered, select]);
 
   // Navigation is structural, not a preference: arrows and j/k are fixed, and
   // Enter opens whatever the cursor is on.
@@ -68,20 +78,20 @@ export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(target.tagName))) return;
-      if (projects.length === 0) return;
+      if (ordered.length === 0) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      const index = projects.findIndex((p) => p.id === selectedId);
+      const index = ordered.findIndex((p) => p.id === selectedId);
       const move = (delta: number) => {
         e.preventDefault();
-        const next = Math.min(Math.max(index + delta, 0), projects.length - 1);
-        select(projects[index === -1 ? 0 : next].id);
+        const next = Math.min(Math.max(index + delta, 0), ordered.length - 1);
+        select(ordered[index === -1 ? 0 : next].id);
       };
 
       if (e.key === "ArrowDown" || e.key === "j") return move(1);
       if (e.key === "ArrowUp" || e.key === "k") return move(-1);
 
-      const project = projects[index];
+      const project = ordered[index];
       if (project && e.key === "Enter") {
         e.preventDefault();
         void actions.openIde(project);
@@ -89,7 +99,7 @@ export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [actions, projects, select, selectedId]);
+  }, [actions, ordered, select, selectedId]);
 
   // Everything that acts on the selected project, through bindings the user
   // can change.
@@ -102,7 +112,6 @@ export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void
     refresh: () => selectedProject && void actions.refresh(selectedProject),
     favorite: () => selectedProject && void actions.toggleFavorite(selectedProject),
   });
-  const groups = useGroupedProjects(projects);
 
   if (!loaded) {
     // Placeholder rows rather than an empty void: the board is about to have
@@ -186,9 +195,14 @@ export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void
         tabIndex={0}
         aria-activedescendant={selectedId !== null ? `project-${selectedId}` : undefined}
         className={
-          groups || view === "list"
-            ? "@container flex-1 overflow-y-auto px-2 py-2 outline-none"
-            : "@container grid flex-1 grid-cols-[repeat(auto-fill,minmax(268px,1fr))] content-start gap-2.5 overflow-y-auto p-3 outline-none"
+          groups
+            ? // No padding above the first row: a sticky heading pins to the
+              // scrollport edge, and any top padding leaves a strip where the
+              // row underneath shows through above the heading.
+              "@container flex-1 overflow-y-auto px-2 pb-2 outline-none"
+            : view === "list"
+              ? "@container flex-1 overflow-y-auto px-2 py-2 outline-none"
+              : "@container grid flex-1 grid-cols-[repeat(auto-fill,minmax(268px,1fr))] content-start gap-2.5 overflow-y-auto p-3 outline-none"
         }
       >
         {groups ? (
