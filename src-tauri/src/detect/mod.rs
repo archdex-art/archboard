@@ -135,6 +135,12 @@ const MANIFEST_READ_LIMIT: usize = 64 * 1024;
 fn read_head(path: &Path, limit: usize) -> Option<String> {
     use std::io::Read;
     let mut buf = Vec::with_capacity(limit.min(8192));
+    // `open` on a FIFO blocks until a writer appears, and an archive of a
+    // "project folder" can contain one named package.json. Reading is capped
+    // below; opening was not.
+    if !path.metadata().ok()?.is_file() {
+        return None;
+    }
     let f = std::fs::File::open(path).ok()?;
     f.take(limit as u64).read_to_end(&mut buf).ok()?;
     Some(String::from_utf8_lossy(&buf).into_owned())

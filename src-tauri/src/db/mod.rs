@@ -15,15 +15,20 @@ use models::*;
 pub struct Db(pub Mutex<Connection>);
 
 impl Db {
+    /// Opens the database and brings the schema up to date.
+    ///
+    /// Opening deliberately does not write any user configuration. Seeding
+    /// scan roots here meant that deleting every root and restarting silently
+    /// put one back, because the seed fires whenever the table is empty and
+    /// "empty" is indistinguishable from "the user emptied it". Discovery is
+    /// offered once, by `seed_default_scan_roots`, and only when asked.
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let conn = Connection::open(path)?;
-        schema::migrate(&conn)?;
-        let db = Self(Mutex::new(conn));
-        db.seed_defaults()?;
-        Ok(db)
+        let mut conn = Connection::open(path)?;
+        schema::migrate(&mut conn)?;
+        Ok(Self(Mutex::new(conn)))
     }
 
     pub fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
@@ -31,25 +36,6 @@ impl Db {
         // disk is still consistent (SQLite transactions are atomic), so
         // recovering is strictly better than taking the whole app down.
         self.0.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
-    fn seed_defaults(&self) -> Result<()> {
-        let conn = self.conn();
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM scan_roots", [], |r| r.get(0))?;
-        if count == 0 {
-            if let Some(home) = dirs::home_dir() {
-                for name in ["Projects", "Developer", "Code", "Work", "dev", "src"] {
-                    let candidate = home.join(name);
-                    if candidate.is_dir() {
-                        conn.execute(
-                            "INSERT OR IGNORE INTO scan_roots (path, depth, enabled) VALUES (?1, 3, 1)",
-                            params![candidate.to_string_lossy()],
-                        )?;
-                    }
-                }
-            }
-        }
-        Ok(())
     }
 }
 
@@ -519,4 +505,89 @@ pub fn workspace_commands(conn: &Connection, project_id: i64) -> Result<Vec<Proj
         })?
         .collect::<Result<_, rusqlite::Error>>()?;
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Unique per call: parallel tests must not share a database file.
+    fn scratch_db() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static SEQ: AtomicU32 = AtomicU32::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "archboard-db-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::remove_dir_all(&dir).ok();
+        dir.join("archboard.db")
+    }
+
+    #[test]
+    fn opening_the_database_writes_no_user_configuration() {
+        // Opening used to seed scan roots whenever the table was empty, which
+        // made "I deleted every scan root" and "this is a fresh install" the
+        // same state, and quietly undid the former on the next launch.
+        let path = scratch_db();
+        let db = Db::open(&path).unwrap();
+        assert_eq!(list_scan_roots(&db.conn()).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn deleted_scan_roots_stay_deleted_across_reopen() {
+        let path = scratch_db();
+        let dir = std::env::temp_dir();
+        {
+            let db = Db::open(&path).unwrap();
+            add_scan_root(&db.conn(), &dir.to_string_lossy(), 3).unwrap();
+            let roots = list_scan_roots(&db.conn()).unwrap();
+            assert_eq!(roots.len(), 1);
+            remove_scan_root(&db.conn(), roots[0].id).unwrap();
+        }
+        let reopened = Db::open(&path).unwrap();
+        assert_eq!(
+            list_scan_roots(&reopened.conn()).unwrap().len(),
+            0,
+            "a root the user removed came back after restart"
+        );
+    }
+
+    #[test]
+    fn migrations_are_idempotent_across_reopen() {
+        let path = scratch_db();
+        let first = Db::open(&path).unwrap();
+        let version: i64 = first
+            .conn()
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        drop(first);
+        let second = Db::open(&path).unwrap();
+        let again: i64 = second
+            .conn()
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, again);
+        // The column added by migration 3 must exist exactly once and be
+        // readable as the bool the model declares.
+        second
+            .conn()
+            .query_row("SELECT COUNT(in_workspace) FROM project_commands", [], |r| {
+                r.get::<_, i64>(0)
+            })
+            .expect("in_workspace column missing after reopen");
+    }
+
+    #[test]
+    fn foreign_keys_are_enforced_on_this_connection() {
+        // project_tags and project_commands rely on ON DELETE CASCADE. If the
+        // pragma is off, deleting a project silently orphans its rows.
+        let path = scratch_db();
+        let db = Db::open(&path).unwrap();
+        let on: i64 = db
+            .conn()
+            .query_row("PRAGMA foreign_keys", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(on, 1, "foreign keys are off; cascades will not fire");
+    }
 }

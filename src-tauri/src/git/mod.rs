@@ -73,6 +73,29 @@ impl GitStatus {
     }
 }
 
+/// Configuration a repository must not be allowed to set.
+///
+/// A repository carries its own `.git/config`, and several git settings name a
+/// *program* rather than a value. `core.fsmonitor` is the sharpest: `git
+/// status` execs it, so merely adding a folder to the board — and then every
+/// sixty seconds afterwards — would run whatever a downloaded tarball asked
+/// for. Verified locally: with the key set in a scratch repo's own config,
+/// Archboard's exact argv ran the payload; with these flags it does not.
+///
+/// Command-line `-c` outranks repository config, so this is the whole fix.
+const HARDENING: &[&str] = &[
+    "-c", "core.fsmonitor=false",
+    "-c", "core.hooksPath=/dev/null",
+    "-c", "core.sshCommand=",
+    "-c", "core.editor=true",
+    "-c", "diff.external=",
+    "-c", "credential.helper=",
+    "-c", "uploadpack.packObjectsHook=",
+    "-c", "protocol.ext.allow=never",
+    // Keeps a newline in a filename from forging an extra porcelain line.
+    "-c", "core.quotePath=true",
+];
+
 /// Runs git inside `dir` with an argv array — no shell, no interpolation.
 async fn git(dir: &Path, args: &[&str]) -> Result<std::process::Output> {
     let _permit = GATE.acquire().await.map_err(|_| {
@@ -82,6 +105,7 @@ async fn git(dir: &Path, args: &[&str]) -> Result<std::process::Output> {
     let mut cmd = Command::new("git");
     cmd.arg("-C")
         .arg(dir)
+        .args(HARDENING)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -90,7 +114,9 @@ async fn git(dir: &Path, args: &[&str]) -> Result<std::process::Output> {
         // credential prompt on a background read.
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("GIT_PAGER", "cat");
+        .env("GIT_PAGER", "cat")
+        // The child must die with us rather than outlive a timeout.
+        .kill_on_drop(true);
 
     match tokio::time::timeout(GIT_TIMEOUT, cmd.output()).await {
         Ok(Ok(out)) => Ok(out),
@@ -300,6 +326,42 @@ pub async fn branches(path: &str) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    /// A repository is untrusted input: it ships its own `.git/config`, and
+    /// several git settings name a program to execute. This drives the real
+    /// `git` binary against a repo that tries to run one.
+    #[tokio::test]
+    async fn a_repository_cannot_choose_a_program_for_us_to_run() {
+        let root = std::env::temp_dir().join(format!("archboard-hostile-{}", std::process::id()));
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::create_dir_all(&root).unwrap();
+        let payload = root.join("payload");
+
+        let init = std::process::Command::new("git").arg("init").arg("-q").arg(&root).status();
+        if !matches!(init, Ok(s) if s.success()) {
+            return; // no git on this machine; nothing to prove
+        }
+        std::fs::write(root.join("a.txt"), "hi").unwrap();
+
+        // The hook a hostile repository would carry in its own config.
+        let hook = root.join("hook.sh");
+        std::fs::write(&hook, format!("#!/bin/sh\ntouch {}\n", payload.display())).unwrap();
+        std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(["config", "core.fsmonitor"])
+            .arg(&hook)
+            .status()
+            .unwrap();
+
+        let _ = status(1, &root.to_string_lossy(), true).await;
+
+        let ran = payload.exists();
+        std::fs::remove_dir_all(&root).ok();
+        assert!(!ran, "a repository's own config got a program executed by reading its status");
+    }
 
     #[test]
     fn parses_branch_counts_and_states() {

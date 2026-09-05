@@ -21,6 +21,48 @@ use crate::error::{AppError, Code, Result};
 /// How long to wait for the terminal to prove it actually ran the script.
 const PROOF_TIMEOUT: Duration = Duration::from_millis(2500);
 
+/// A path unique to this run.
+///
+/// The process id alone is not: it is constant for the life of the app, so
+/// every command reused one script file and one marker. A workspace launch
+/// runs several commands in sequence, and rewriting the script while a shell
+/// spawned moments earlier is still reading it makes that shell execute the
+/// next command's text instead of its own.
+fn scratch_path(kind: &str) -> PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    std::env::temp_dir().join(format!(
+        "archboard-{kind}-{}-{}",
+        std::process::id(),
+        SEQ.fetch_add(1, Ordering::Relaxed)
+    ))
+}
+
+/// Removes scripts and markers left behind by earlier runs.
+///
+/// The script cannot be deleted when `run` returns: the terminal may not have
+/// read it yet, and on the command-line path we never wait at all. Sweeping
+/// anything older than an hour on the next run keeps the temp directory from
+/// growing for the life of the installation without racing a live shell.
+fn sweep_stale() {
+    let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else { return };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        if !name.starts_with("archboard-run-") && !name.starts_with("archboard-ran-") {
+            continue;
+        }
+        let stale = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .map(|t| t.elapsed().map(|e| e > Duration::from_secs(3600)).unwrap_or(false))
+            .unwrap_or(false);
+        if stale {
+            std::fs::remove_file(entry.path()).ok();
+        }
+    }
+}
+
 /// Writes the throwaway script that the terminal will execute.
 ///
 /// The script marks itself as started, so we can tell the difference between a
@@ -34,13 +76,15 @@ const PROOF_TIMEOUT: Duration = Duration::from_millis(2500);
 /// but also close the window the instant a short command finished, taking its
 /// output with it — which is worse for `make test` than a confirmation is.
 fn write_script(dir: &Path, command: &str, marker: &Path) -> Result<PathBuf> {
-    let mut path = std::env::temp_dir();
-    path.push(format!("archboard-run-{}.command", std::process::id()));
+    let path = scratch_path("run").with_extension("command");
 
     let script = format!(
+        // The marker is the only evidence `run` waits for, so it must come
+        // after the `cd`: writing it first reports success for a command that
+        // never ran because its folder had gone.
         "#!/bin/sh\n\
-         : > {marker}\n\
          cd {dir} || exit 1\n\
+         : > {marker}\n\
          clear\n\
          {command}\n\
          exec \"${{SHELL:-/bin/sh}}\" -l\n",
@@ -75,7 +119,8 @@ pub fn run(terminal: &Launcher, dir: &Path, command: &str) -> Result<()> {
         ));
     }
 
-    let marker = std::env::temp_dir().join(format!("archboard-ran-{}", std::process::id()));
+    sweep_stale();
+    let marker = scratch_path("ran");
     std::fs::remove_file(&marker).ok();
     let script = write_script(dir, command, &marker)?;
 
@@ -105,7 +150,11 @@ pub fn run(terminal: &Launcher, dir: &Path, command: &str) -> Result<()> {
                 .stderr(Stdio::null())
                 .spawn()
                 .map_err(|e| AppError::new(Code::LauncherMissing, e.to_string()))?;
-            return Ok(());
+            // `spawn` only proves a process started. A terminal that does not
+            // understand `-e` opens a window and ignores the script, which is
+            // the exact silent no-op the marker exists to catch — so this path
+            // waits for the same evidence the bundle path does.
+            return await_proof(&marker, terminal);
         }
     }
 
@@ -126,12 +175,20 @@ pub fn run(terminal: &Launcher, dir: &Path, command: &str) -> Result<()> {
         .status()
         .map_err(|e| AppError::new(Code::Io, e.to_string()))?;
 
-    // `open` reports success as long as the application launched, even when it
-    // ignored the file, so wait for the script's own evidence instead.
+    await_proof(&marker, terminal)
+}
+
+/// Waits for the script's own evidence that it started.
+///
+/// Launching is not running: `open` reports success as long as the application
+/// came up, even when it ignored the file, and `spawn` only proves a process
+/// was created. The script writes the marker as its first act after reaching
+/// the project directory, so its appearance is the only trustworthy signal.
+fn await_proof(marker: &Path, terminal: &Launcher) -> Result<()> {
     let deadline = Instant::now() + PROOF_TIMEOUT;
     while Instant::now() < deadline {
         if marker.exists() {
-            std::fs::remove_file(&marker).ok();
+            std::fs::remove_file(marker).ok();
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(60));
@@ -151,6 +208,38 @@ pub fn run(terminal: &Launcher, dir: &Path, command: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_run_gets_its_own_script_and_marker() {
+        // These used to be derived from the process id alone, so a workspace
+        // launch rewrote one script while the shell it had just handed that
+        // path to was still reading it.
+        let a = scratch_path("run");
+        let b = scratch_path("run");
+        assert_ne!(a, b);
+        let marker = scratch_path("ran");
+        assert_ne!(a, marker);
+    }
+
+    #[test]
+    fn a_script_written_for_one_command_is_not_disturbed_by_the_next() {
+        let dir = std::env::temp_dir();
+        let first = write_script(&dir, "echo one", &scratch_path("ran")).unwrap();
+        let second = write_script(&dir, "echo two", &scratch_path("ran")).unwrap();
+        assert_ne!(first, second);
+        assert!(std::fs::read_to_string(&first).unwrap().contains("echo one"));
+        assert!(std::fs::read_to_string(&second).unwrap().contains("echo two"));
+        std::fs::remove_file(first).ok();
+        std::fs::remove_file(second).ok();
+    }
+
+    #[test]
+    fn the_sweep_spares_files_that_are_still_fresh() {
+        let live = write_script(&std::env::temp_dir(), "echo live", &scratch_path("ran")).unwrap();
+        sweep_stale();
+        assert!(live.exists(), "the sweep deleted a script a shell may still be reading");
+        std::fs::remove_file(live).ok();
+    }
 
     #[test]
     fn quotes_paths_so_a_space_or_quote_cannot_break_out() {

@@ -147,6 +147,22 @@ Cost: one `read_dir` plus at most one file read.
 
 ## 8. Security
 
+**A repository is untrusted input, and git is a program it can configure.**
+Archboard never builds a command from project metadata — every git and launcher
+call is an argv array. That turned out not to be enough. Git reads the
+repository's own `.git/config`, and several settings name a *program*:
+`core.fsmonitor` is executed by `git status`. A folder unpacked from a tarball
+could therefore run code the moment it was added to the board, and again on
+every sixty-second refresh. Verified locally with Archboard's exact argv, then
+fixed by passing hardening `-c` overrides on every invocation — command-line
+config outranks repository config — and covered by a test that drives the real
+`git` binary against a repository that tries it.
+
+**Credentials are not copied out of the repository.** `git remote get-url`
+returns whatever is in `.git/config`, including `https://user:token@host/...`.
+The userinfo is stripped before the remote is stored or sent to the frontend:
+the database is not a place the user expects to keep secrets.
+
 | Risk | Mitigation |
 |---|---|
 | Arbitrary command execution | No command string crosses IPC. The frontend passes ids; Rust resolves them. |

@@ -58,15 +58,23 @@ export interface ProjectGroup {
   projects: Project[];
 }
 
+/** No git anywhere on the board, and a stable identity so it never re-triggers. */
+const NO_GIT: Record<number, GitStatus> = Object.freeze({});
+
 /** Groups the sorted/filtered project list by the active group mode. */
 export function useGroupedProjects(projects: Project[]): ProjectGroup[] | null {
   const git = useApp((s) => s.git);
   const group = useApp((s) => s.group);
 
+  // Only the status grouping reads git. Passing the map in regardless meant
+  // every arriving status rebuilt the language and directory groupings too,
+  // which is the whole board re-partitioned for information they never use.
+  const relevant = group === "status" ? git : NO_GIT;
+
   return useMemo(() => {
     if (group === "none") return null;
-    return groupProjects(projects, group, git);
-  }, [projects, group, git]);
+    return groupProjects(projects, group, relevant);
+  }, [projects, group, relevant]);
 }
 
 /**

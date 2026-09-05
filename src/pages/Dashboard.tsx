@@ -51,6 +51,16 @@ export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void
     [refreshGit],
   );
 
+  // The coalescing window outlives the last row that opened it, so a board
+  // torn down mid-scroll would otherwise fire one more batch into a store
+  // nobody is reading.
+  useEffect(
+    () => () => {
+      if (timer.current !== null) window.clearTimeout(timer.current);
+    },
+    [],
+  );
+
   const openDefault = useCallback((project: Project) => void actions.openIde(project), [actions]);
 
   const groups = useGroupedProjects(projects);
@@ -71,6 +81,15 @@ export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void
     primed.current = true;
     if (useApp.getState().selectedId === null) select(ordered[0].id);
   }, [ordered, select]);
+
+  // Searching or filtering can hide the row the cursor is on. Leave it there
+  // and the board shows no cursor at all while ⌘T still acts on the hidden
+  // project, so the cursor follows the list back into view.
+  useEffect(() => {
+    if (ordered.length === 0) return;
+    if (ordered.some((p) => p.id === selectedId)) return;
+    select(ordered[0].id);
+  }, [ordered, selectedId, select]);
 
   // Navigation is structural, not a preference: arrows and j/k are fixed, and
   // Enter opens whatever the cursor is on.
@@ -103,7 +122,11 @@ export function Dashboard({ onAdd, onScan, onFirstRunScan }: { onAdd: () => void
 
   // Everything that acts on the selected project, through bindings the user
   // can change.
-  const selectedProject = projects.find((p) => p.id === selectedId) ?? null;
+  //
+  // Derived from the rendered list, not the whole board: filtering can hide
+  // the row the cursor is on, and ⌘T opening a terminal in a project you can
+  // no longer see is worse than doing nothing.
+  const selectedProject = ordered.find((p) => p.id === selectedId) ?? null;
   useShortcuts({
     "open-ide": () => selectedProject && void actions.openIde(selectedProject),
     "open-terminal": () => selectedProject && void actions.openTerminal(selectedProject),

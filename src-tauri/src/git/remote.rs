@@ -3,7 +3,10 @@ use serde::Serialize;
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Remote {
-    /// Exactly what `git remote get-url` returned.
+    /// What `git remote get-url` returned, with any embedded credentials
+    /// removed. Anyone who has ever put a token in a remote would otherwise
+    /// have it copied out of `.git/config` into Archboard's database and sent
+    /// to the webview on every list, for a string that is only ever displayed.
     pub raw: String,
     pub host: String,
     /// Display name for the hosting service, e.g. "GitHub", "Azure DevOps".
@@ -68,8 +71,31 @@ fn service_for(host: &str) -> &'static str {
     }
 }
 
+/// Removes `user:password@` / `user:token@` from a remote URL.
+///
+/// Only the authority is touched: everything before `://` and everything from
+/// the host onwards is preserved, so the result is still the user's remote.
+fn redact(raw: &str) -> String {
+    let Some(scheme_end) = raw.find("://") else {
+        // scp-style `git@host:path` carries a username but never a secret.
+        return raw.to_string();
+    };
+    let (scheme, rest) = raw.split_at(scheme_end + 3);
+    match rest.split_once('/') {
+        Some((authority, path)) => match authority.rsplit_once('@') {
+            Some((_, host)) => format!("{scheme}{host}/{path}"),
+            None => raw.to_string(),
+        },
+        None => match rest.rsplit_once('@') {
+            Some((_, host)) => format!("{scheme}{host}"),
+            None => raw.to_string(),
+        },
+    }
+}
+
 pub fn parse(raw: &str) -> Option<Remote> {
     let (host, path) = split(raw)?;
+    let raw = &redact(raw);
     let service = service_for(&host);
 
     // Azure DevOps speaks three dialects for the same repository.
@@ -109,6 +135,38 @@ pub fn parse(raw: &str) -> Option<Remote> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_token_embedded_in_a_remote_never_leaves_the_repository() {
+        // `git remote get-url` happily returns the password. Copying it into
+        // our database would duplicate a secret into a file the user does not
+        // think of as a keychain.
+        let r = parse("https://user:ghp_secret123@github.com/o/r.git").unwrap();
+        assert!(!r.raw.contains("ghp_secret123"), "token survived in raw: {}", r.raw);
+        assert!(!r.raw.contains("user:"));
+        assert_eq!(r.raw, "https://github.com/o/r.git");
+        // The useful parts are untouched.
+        assert_eq!(r.host, "github.com");
+        assert_eq!(r.owner.as_deref(), Some("o"));
+        assert_eq!(r.repo.as_deref(), Some("r"));
+        assert_eq!(r.web_url.as_deref(), Some("https://github.com/o/r"));
+    }
+
+    #[test]
+    fn ordinary_remotes_are_returned_unchanged() {
+        assert_eq!(
+            parse("https://github.com/o/r.git").unwrap().raw,
+            "https://github.com/o/r.git"
+        );
+        assert_eq!(
+            parse("git@github.com:o/r.git").unwrap().raw,
+            "git@github.com:o/r.git"
+        );
+        assert_eq!(
+            parse("ssh://git@host:2222/o/r.git").unwrap().raw,
+            "ssh://host:2222/o/r.git"
+        );
+    }
 
     fn web(raw: &str) -> String {
         parse(raw).and_then(|r| r.web_url).unwrap_or_default()

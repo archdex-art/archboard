@@ -35,11 +35,13 @@ export function CommandsBlock({
     void api
       .listCommands(projectId)
       .then((next) => live && setCommands(next))
-      .catch(() => {});
+      // Silence here reads as "this project has no saved commands", which is
+      // the opposite of the truth when the read failed.
+      .catch((e) => live && fail(e));
     return () => {
       live = false;
     };
-  }, [projectId]);
+  }, [projectId, fail]);
 
   useEffect(() => {
     onCommandsChange?.(commands);

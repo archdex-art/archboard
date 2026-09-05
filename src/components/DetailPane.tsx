@@ -58,10 +58,16 @@ export function DetailPane({ project, onClose }: { project: Project; onClose: ()
     void api
       .projectDetail(project.id)
       .then((d) => live && setDetail(d))
-      .catch(() => {});
+      // The pane's primary read. If this fails the folder is gone or the
+      // backend is unreachable, and an empty pane would look like a project
+      // with nothing in it.
+      .catch((e) => live && fail(e, { detail: tildePath(project.path) }));
     void api
       .gitRecentCommits(project.id, 6)
       .then((c) => live && setCommits(c))
+      // These two already answer "git could not tell me" with an empty list,
+      // so the only way they reject is the failure projectDetail just
+      // reported. One toast per cause, not three.
       .catch(() => {});
     void api
       .gitBranches(project.id)
@@ -70,7 +76,7 @@ export function DetailPane({ project, onClose }: { project: Project; onClose: ()
     return () => {
       live = false;
     };
-  }, [project.id, project.notes]);
+  }, [project.id, project.notes, project.path, fail]);
 
   const ides = launchers.filter((l) => l.kind === "ide" && l.enabled);
   const defaultIde = ides.find((l) => l.id === project.defaultIdeId) ?? ides[0];

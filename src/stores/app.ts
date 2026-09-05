@@ -195,7 +195,12 @@ export const useApp = create<AppState>((set, get) => ({
       set((s) => {
         const git = { ...s.git };
         const gitErrors = { ...s.gitErrors };
+        // A refresh started before the project was removed still resolves
+        // afterwards. Writing its result back would resurrect state for a row
+        // that no longer exists, and nothing ever clears it again.
+        const live = new Set(s.projects.map((p) => p.id));
         for (const entry of entries) {
+          if (!live.has(entry.projectId)) continue;
           if (entry.status) {
             git[entry.projectId] = entry.status;
             delete gitErrors[entry.projectId];

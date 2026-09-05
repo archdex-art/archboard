@@ -278,7 +278,8 @@ pub async fn git_branches(db: State<'_, Db>, id: i64) -> Result<Vec<String>> {
 
 // ----------------------------------------------------------------- launchers
 
-#[tauri::command]
+// Runs off the main thread: this walks every application bundle.
+#[tauri::command(async)]
 pub fn detect_launchers(db: State<'_, Db>) -> Result<Vec<Launcher>> {
     let found = launcher::detect();
     let conn = db.conn();
@@ -341,12 +342,14 @@ fn open_with(db: &Db, kind: LauncherKind, project_id: i64, launcher_id: Option<i
     db::touch_project(&conn, project_id)
 }
 
-#[tauri::command]
+// Runs off the main thread: this waits on the launch subprocess.
+#[tauri::command(async)]
 pub fn open_in_ide(db: State<'_, Db>, id: i64, launcher_id: Option<i64>) -> Result<()> {
     open_with(&db, LauncherKind::Ide, id, launcher_id)
 }
 
-#[tauri::command]
+// Runs off the main thread: this waits on the launch subprocess.
+#[tauri::command(async)]
 pub fn open_terminal(db: State<'_, Db>, id: i64, launcher_id: Option<i64>) -> Result<()> {
     open_with(&db, LauncherKind::Terminal, id, launcher_id)
 }
@@ -581,7 +584,8 @@ pub fn delete_command(db: State<'_, Db>, id: i64, project_id: i64) -> Result<Vec
 ///
 /// Nothing here is derived from the project's own files; the text is what the
 /// user typed, and it only runs because they asked for it now.
-#[tauri::command]
+// Runs off the main thread: this waits up to PROOF_TIMEOUT for the terminal.
+#[tauri::command(async)]
 pub fn run_command(db: State<'_, Db>, id: i64) -> Result<()> {
     let (terminal, path) = {
         let conn = db.conn();
@@ -599,7 +603,8 @@ pub fn run_command(db: State<'_, Db>, id: i64) -> Result<()> {
 }
 
 /// Opens the IDE and runs every workspace command in terminal windows.
-#[tauri::command]
+// Runs off the main thread: this waits up to PROOF_TIMEOUT per command.
+#[tauri::command(async)]
 pub fn launch_workspace(db: State<'_, Db>, id: i64, launcher_id: Option<i64>) -> Result<()> {
     let (ide, terminal, path, ws_commands) = {
         let conn = db.conn();
@@ -613,10 +618,24 @@ pub fn launch_workspace(db: State<'_, Db>, id: i64, launcher_id: Option<i64>) ->
     let dir = Path::new(&path);
     launcher::launch(&ide, dir)?;
 
+    // Every command is attempted. Stopping at the first failure left the
+    // workspace half-open — editor up, some terminals missing, and the project
+    // not even marked as opened — which is the worst of both outcomes. The
+    // first failure is still reported, once everything else has been tried.
+    let mut failure = None;
     for cmd in &ws_commands {
-        runner::run(&terminal, dir, &cmd.command)?;
+        if let Err(e) = runner::run(&terminal, dir, &cmd.command) {
+            failure.get_or_insert(e);
+        }
     }
 
-    let conn = db.conn();
-    db::touch_project(&conn, id)
+    {
+        let conn = db.conn();
+        db::touch_project(&conn, id)?;
+    }
+
+    match failure {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
 }
