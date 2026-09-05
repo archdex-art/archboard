@@ -43,16 +43,18 @@ jobs:
           # Tauri skips the DMG's Finder styling whenever CI=true. The runner
           # has a GUI session, so opt back in and keep the installer layout.
           TAURI_BUNDLER_DMG_IGNORE_CI: "true"
-          # Ad-hoc signing until a Developer ID certificate exists. Add
-          # APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
-          # APPLE_ID, APPLE_PASSWORD and APPLE_TEAM_ID as repository secrets and
-          # tauri-action will sign and notarize instead.
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          #
+          # No Apple variables are set here on purpose. An unset repository
+          # secret still defines the environment variable, as an empty string,
+          # and Tauri reads "APPLE_CERTIFICATE exists" as "import this
+          # certificate" — then fails the whole build on `security import`.
+          # Passing nothing is what produces the ad-hoc signature this release
+          # is meant to have.
+          #
+          # To sign and notarize instead, add APPLE_CERTIFICATE,
+          # APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID,
+          # APPLE_PASSWORD and APPLE_TEAM_ID as secrets, then list them here.
+          # Add them only once they all have real values.
         with:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: Archboard ${{ github.event.inputs.tag || github.ref_name }}
