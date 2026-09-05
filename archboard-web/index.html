@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Archboard — see which repositories need you</title>
+<meta name="description" content="A macOS launcher that shows every local git repository and the state it is in, then opens the editor, terminal, folder or remote. Free, universal, 7.3 MB." />
+<meta name="color-scheme" content="dark" />
+
+<meta property="og:title" content="Archboard — see which repositories need you" />
+<meta property="og:description" content="Every local git repository and the state it is in, on one board." />
+<meta property="og:type" content="website" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e1013'/%3E%3Crect x='7' y='8' width='3' height='16' rx='1.5' fill='%23f0b429'/%3E%3Crect x='13' y='8' width='12' height='3' rx='1.5' fill='%23a3a9b7'/%3E%3Crect x='13' y='14.5' width='12' height='3' rx='1.5' fill='%23555b66'/%3E%3Crect x='13' y='21' width='7' height='3' rx='1.5' fill='%23555b66'/%3E%3C/svg%3E" />
+</head>
+
+<body>
+<a class="skip" href="#download">Skip to download</a>
+
+<header class="topbar">
+  <div class="shell topbar__inner">
+    <a class="wordmark" href="#top">
+      <span class="wordmark__mark" aria-hidden="true"></span>
+      Archboard
+    </a>
+    <nav class="topbar__nav" aria-label="Primary">
+      <a href="#board">The board</a>
+      <a href="#open">Opening</a>
+      <a href="#honest">When not to</a>
+      <a class="topbar__repo" href="https://github.com/archdex-art/archboard">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ─────────────────────────────── hero ─────────────────────────────── -->
+  <section class="hero">
+    <div class="shell hero__inner">
+      <p class="eyebrow">macOS · v0.1.0 · free</p>
+
+      <h1 class="hero__title">
+        Which of these<br />needs you today?
+      </h1>
+
+      <p class="hero__lede">
+        Archboard lists every git repository on your Mac and the state it is in.
+        Amber means you left something uncommitted. Everything settled stays grey,
+        so the unfinished work is the only thing that catches your eye.
+      </p>
+
+      <!-- The signature: a real board, painting the way the app actually
+           loads — rows from the database first, git state a beat later. -->
+      <figure class="window" id="board">
+        <figcaption class="sr-only">
+          A board of ten repositories. Three have uncommitted changes and are
+          marked in amber; the remaining seven are clean.
+        </figcaption>
+
+        <div class="window__chrome" aria-hidden="true">
+          <span class="dot dot--close"></span>
+          <span class="dot dot--min"></span>
+          <span class="dot dot--zoom"></span>
+          <span class="window__search">Search projects, paths, branches, tags</span>
+          <span class="window__kbd">⌘K</span>
+        </div>
+
+        <div class="window__body">
+          <aside class="rail" aria-hidden="true">
+            <p class="rail__head">Projects</p>
+            <span class="rail__item is-active">All projects <b>10</b></span>
+            <span class="rail__item">Favorites</span>
+            <span class="rail__item">Recently opened</span>
+            <span class="rail__item">Git repositories <b>10</b></span>
+            <span class="rail__item rail__item--signal">Uncommitted work <b>3</b></span>
+            <p class="rail__head">Stack</p>
+            <span class="rail__item">TypeScript <b>6</b></span>
+            <span class="rail__item">Rust <b>2</b></span>
+            <span class="rail__item">Python <b>1</b></span>
+          </aside>
+
+          <ol class="board" id="rows">
+            <li class="row" data-state="dirty" style="--i:0">
+              <span class="row__gutter"></span>
+              <span class="row__name">AI-BrowserMemory
+                <span class="row__path">~/Desktop/AI-BrowserMemory</span>
+              </span>
+              <span class="row__stack">TypeScript · React</span>
+              <span class="row__branch">main</span>
+              <span class="row__count">6 changed</span>
+              <span class="row__age">1mo</span>
+            </li>
+            <li class="row" data-state="dirty" style="--i:1">
+              <span class="row__gutter"></span>
+              <span class="row__name">SIH
+                <span class="row__path">~/Desktop/SIH</span>
+              </span>
+              <span class="row__stack">TypeScript</span>
+              <span class="row__branch">main</span>
+              <span class="row__count">11 changed</span>
+              <span class="row__age">5d</span>
+            </li>
+            <li class="row" data-state="dirty" style="--i:2">
+              <span class="row__gutter"></span>
+              <span class="row__name">Portfolio
+                <span class="row__path">~/Desktop/Portfolio</span>
+              </span>
+              <span class="row__stack">TypeScript · Next.js</span>
+              <span class="row__branch">main</span>
+              <span class="row__count">9 changed</span>
+              <span class="row__age">1mo</span>
+            </li>
+            <li class="row" style="--i:3">
+              <span class="row__gutter"></span>
+              <span class="row__name">AIWorkspace
+                <span class="row__path">~/Desktop/AIWorkspace</span>
+              </span>
+              <span class="row__stack">Rust · Axum</span>
+              <span class="row__branch" title="feat/context-economics">feat/c…onomics</span>
+              <span class="row__count row__count--clean">clean</span>
+              <span class="row__age">3d</span>
+            </li>
+            <li class="row" style="--i:4">
+              <span class="row__gutter"></span>
+              <span class="row__name">hermes-agent
+                <span class="row__path">~/Desktop/hermes-agent</span>
+              </span>
+              <span class="row__stack">Python · FastAPI</span>
+              <span class="row__branch" title="fix/honcho-plugin-pydantic-validation">fix/ho…idation</span>
+              <span class="row__count row__count--clean">clean</span>
+              <span class="row__age">1mo</span>
+            </li>
+            <li class="row" style="--i:5">
+              <span class="row__gutter"></span>
+              <span class="row__name">arch_Terminal
+                <span class="row__path">~/Desktop/arch_Terminal</span>
+              </span>
+              <span class="row__stack">TypeScript</span>
+              <span class="row__branch" title="feat/ci-gate-and-triage-ui">feat/c…iage-ui</span>
+              <span class="row__count row__count--clean">clean</span>
+              <span class="row__age">2w</span>
+            </li>
+            <li class="row" style="--i:6">
+              <span class="row__gutter"></span>
+              <span class="row__name">SuperSearch
+                <span class="row__path">~/Desktop/SuperSearch</span>
+              </span>
+              <span class="row__stack">Rust · Tauri</span>
+              <span class="row__branch">main</span>
+              <span class="row__count row__count--clean">clean</span>
+              <span class="row__age">1mo</span>
+            </li>
+            <li class="row" style="--i:7">
+              <span class="row__gutter"></span>
+              <span class="row__name">ArchLense
+                <span class="row__path">~/Desktop/ArchLense</span>
+              </span>
+              <span class="row__stack">TypeScript</span>
+              <span class="row__branch">master</span>
+              <span class="row__count row__count--clean">clean</span>
+              <span class="row__age">1mo</span>
+            </li>
+          </ol>
+        </div>
+      </figure>
+
+      <div class="cta">
+        <a class="btn btn--primary" href="https://github.com/archdex-art/archboard/releases/download/v0.1.0/Archboard_0.1.0_universal.dmg" data-dl>
+          Download for macOS
+        </a>
+        <p class="cta__meta">Universal · 7.3&nbsp;MB · macOS 11 or later</p>
+      </div>
+      <p class="cta__caveat">
+        Not notarized yet — macOS will block the first launch.
+        <a href="#gatekeeper">One command fixes it.</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────── the rule ───────────────────────────── -->
+  <section class="section" aria-labelledby="rule-h">
+    <div class="shell">
+      <h2 class="section__title" id="rule-h">Colour means something, or it isn&rsquo;t used</h2>
+      <div class="rule-grid">
+        <article class="claim claim--signal">
+          <p class="claim__key">Amber</p>
+          <p class="claim__body">You left work uncommitted. Modified, staged or untracked — anything that would be lost if the folder vanished.</p>
+        </article>
+        <article class="claim claim--sync">
+          <p class="claim__key">Violet</p>
+          <p class="claim__body">Your branch has drifted from its remote. Ahead, behind, or both, with the counts beside it.</p>
+        </article>
+        <article class="claim">
+          <p class="claim__key">Graphite</p>
+          <p class="claim__body">Everything else. A board where nothing needs you is a board with no colour on it at all.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────── then open it ─────────────────────────── -->
+  <section class="section section--alt" id="open" aria-labelledby="open-h">
+    <div class="shell">
+      <p class="eyebrow">Then</p>
+      <h2 class="section__title" id="open-h">Find it, see it, open it</h2>
+      <p class="section__lede">
+        Archboard detects what you actually have installed by reading application
+        bundles, not by guessing at command names that may not be on your path.
+      </p>
+
+      <div class="cards">
+        <article class="card">
+          <h3 class="card__title">Your editor</h3>
+          <p class="card__body">VS&nbsp;Code, Cursor, Zed, the JetBrains IDEs, Xcode, Sublime and more. Pick a default per project, or open with any of them.</p>
+        </article>
+        <article class="card">
+          <h3 class="card__title">Your terminal</h3>
+          <p class="card__body">Terminal, iTerm2, WezTerm, kitty, Alacritty, Ghostty and Warp — opened in the project directory, with your shell environment intact.</p>
+        </article>
+        <article class="card">
+          <h3 class="card__title">The folder</h3>
+          <p class="card__body">Revealed in Finder, one keystroke, without hunting through three levels of nesting to find where you put it.</p>
+        </article>
+        <article class="card">
+          <h3 class="card__title">The remote</h3>
+          <p class="card__body">GitHub, GitLab, Bitbucket, Azure DevOps, Codeberg, SourceHut or self-hosted. The URL is parsed, never assumed.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────── search + work ───────────────────────── -->
+  <section class="section" aria-labelledby="fast-h">
+    <div class="shell fast">
+      <div class="fast__copy">
+        <p class="eyebrow">From anywhere</p>
+        <h2 class="section__title" id="fast-h">A keystroke away, always</h2>
+        <p class="section__lede">
+          <kbd>⌥K</kbd> summons Archboard over whatever you were doing. Type a few
+          letters of a project — not the start of its name, any letters in it —
+          and press return.
+        </p>
+        <ul class="ticks">
+          <li>Ranked by how often you open it, weighted by how recently</li>
+          <li>Matches names, paths, branches, languages and tags</li>
+          <li>Group the board by status, language or folder</li>
+          <li>Every shortcut rebindable; the whole app is keyboard-driven</li>
+        </ul>
+      </div>
+
+      <div class="fast__demo" aria-hidden="true">
+        <div class="palette">
+          <div class="palette__query"><span class="palette__caret"></span>abmem</div>
+          <div class="palette__hit">
+            <span class="palette__name"><b>A</b><b>I</b>-<b>B</b>rowser<b>Mem</b>ory</span>
+            <span class="palette__path">~/Desktop/AI-BrowserMemory</span>
+          </div>
+          <p class="palette__foot">1 of 10 · return to open</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────── workspace ───────────────────────────── -->
+  <section class="section section--alt" aria-labelledby="ws-h">
+    <div class="shell">
+      <p class="eyebrow">One click</p>
+      <h2 class="section__title" id="ws-h">Open the editor <em>and</em> start the work</h2>
+      <p class="section__lede">
+        Save the commands you always run in a project. Mark the ones that belong
+        to starting work, and a single click opens your editor and runs each of
+        them in its own terminal window.
+      </p>
+      <div class="ws">
+        <span class="ws__step">Open Cursor</span>
+        <span class="ws__plus">+</span>
+        <span class="ws__step ws__step--mono">bun run dev</span>
+        <span class="ws__plus">+</span>
+        <span class="ws__step ws__step--mono">bun test --watch</span>
+      </div>
+      <p class="ws__note">
+        Nothing is ever read from a project&rsquo;s own files. The commands are the
+        ones you typed, and they run because you clicked, not because a
+        repository suggested them.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────── the honest counter-case ───────────────────── -->
+  <section class="section" id="honest" aria-labelledby="honest-h">
+    <div class="shell honest">
+      <p class="eyebrow eyebrow--plain">The case against</p>
+      <h2 class="section__title" id="honest-h">When you don&rsquo;t need this</h2>
+      <p class="honest__body">
+        If you already know which project you want, Raycast opens it in about a
+        second and <code>zoxide</code> is faster still. Archboard will not beat
+        either of them at that, and the technology labels on each row are
+        decoration to the person who wrote the code.
+      </p>
+      <p class="honest__body">
+        It earns its place on one question only: <em>which of my repositories
+        have work I did not finish?</em> Nothing else answers that without
+        opening them one at a time. That is the whole product — it is narrow, and
+        it is real.
+      </p>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────── download ───────────────────────────── -->
+  <section class="section section--download" id="download" aria-labelledby="dl-h">
+    <div class="shell download">
+      <h2 class="section__title" id="dl-h">Put it on your Mac</h2>
+
+      <a class="btn btn--primary btn--lg" href="https://github.com/archdex-art/archboard/releases/download/v0.1.0/Archboard_0.1.0_universal.dmg" data-dl>
+        Download Archboard 0.1.0
+      </a>
+      <p class="cta__meta">Universal binary · Apple&nbsp;Silicon and Intel · 7.3&nbsp;MB</p>
+
+      <div class="gate" id="gatekeeper">
+        <p class="gate__head">First launch will be blocked</p>
+        <p class="gate__body">
+          This build is signed ad-hoc, not notarized by Apple, so macOS refuses it
+          the first time. Open the DMG, drag Archboard to Applications, then run
+          this once:
+        </p>
+        <pre class="gate__cmd"><code>xattr -dr com.apple.quarantine /Applications/Archboard.app</code><button class="copy" type="button" data-copy="xattr -dr com.apple.quarantine /Applications/Archboard.app">Copy</button></pre>
+        <p class="gate__foot">
+          The app must not be running when you run it. On macOS&nbsp;14 and earlier
+          you can right-click the app and choose Open instead; that shortcut was
+          removed in macOS&nbsp;15.
+        </p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="shell footer__inner">
+    <p class="footer__mark">Archboard</p>
+    <p class="footer__meta">
+      macOS 11 or later · <a href="https://github.com/archdex-art/archboard">Source</a> ·
+      <a href="https://github.com/archdex-art/archboard/releases">All releases</a>
+    </p>
+  </div>
+</footer>
+
+<script src="board.js" defer></script>
+</body>
+</html>
