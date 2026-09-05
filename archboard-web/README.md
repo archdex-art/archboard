@@ -53,9 +53,9 @@ that breaks for any other reason still fails hard.
 
 Enable Pages once, under Settings → Pages → Source: **GitHub Actions**.
 
-### Where it will live
+### Where it lives
 
-`https://archdex-art.github.io/archboard/`. Three files name that URL: the
+**https://archdex-art.github.io/archboard/** — live. Three files name that URL: the
 `canonical` and `og:url` tags in `index.html`, `robots.txt`, and `sitemap.xml`.
 Change all three together if it moves. Everything else is relative and will
 follow.

@@ -4,6 +4,8 @@ A desktop dashboard for every code project on your Mac.
 
 **Find a project → see its state → open terminal, IDE, or Git remote in one click.**
 
+**[Download for macOS](https://archdex-art.github.io/archboard/)** — universal binary, macOS 11 or later.
+
 Built with Tauri v2, Rust, React, TypeScript, Tailwind, and SQLite.
 
 ---
