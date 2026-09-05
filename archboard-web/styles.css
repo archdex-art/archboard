@@ -182,7 +182,6 @@ body {
   text-transform: uppercase;
   color: var(--ink-faint);
 }
-.eyebrow--plain { color: var(--ink-faint); }
 
 .hero__title {
   margin: 0;
@@ -653,20 +652,6 @@ kbd {
   color: var(--ink-faint);
 }
 
-/* ─────────────────────────── the case against ──────────────────────────── */
-
-.honest {
-  max-width: 68ch;
-  padding-left: 26px;
-  border-left: 3px solid var(--line-strong);
-}
-
-.honest__body {
-  margin: 18px 0 0;
-  color: var(--ink-dim);
-}
-.honest__body em { color: var(--ink); font-style: italic; }
-
 code {
   font-family: var(--mono);
   font-size: 0.88em;
@@ -784,7 +769,6 @@ code {
   .row { grid-template-columns: 3px minmax(0, 1fr) 78px; gap: 0 10px; }
   .row__branch { display: none; }
   .window__body { min-height: 0; }
-  .honest { padding-left: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

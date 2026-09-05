@@ -92,10 +92,6 @@ branch names are middle-truncated (`feat/r…ipeline`) because that is what the
 app does, and the fuzzy match shown in the palette (`pxforge` finding
 `pixel-forge`) is a real match under the app's own rules, not a mock-up.
 
-The counter-case section is deliberate. If someone already knows which project
-they want, Raycast and `zoxide` are faster, and saying so is more persuasive
-than pretending otherwise.
-
 ## What holds it to a standard
 
 - **No third-party origins.** Fonts are two self-hosted variable files, 80 KB
