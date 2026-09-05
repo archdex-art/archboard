@@ -37,9 +37,12 @@ node archboard-web/sync-release.mjs          verify; non-zero if wrong
 node archboard-web/sync-release.mjs --write  rewrite index.html
 ```
 
-It reads the latest release, rewrites the version, size and URL, then fetches
-that URL anonymously — the way a visitor would — and fails if it does not come
-back. A landing page whose one job is handing over a binary has exactly one
+It reads the latest release, rewrites the version, size, URL and SHA-256, then
+fetches that URL anonymously — the way a visitor would — and fails if it does
+not come back or does not match the size GitHub reports. The digest is taken
+from the bytes the release actually serves, never from a local build: Apple has
+not notarized this app, so the checksum is the only integrity signal a
+downloader has. A landing page whose one job is handing over a binary has exactly one
 unacceptable bug, and this is the check for it.
 
 While the repository is private its release assets return 404 to everyone, so

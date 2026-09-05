@@ -323,6 +323,15 @@
           you can right-click the app and choose Open instead; that shortcut was
           removed in macOS&nbsp;15.
         </p>
+
+        <p class="gate__head gate__head--quiet">Check what you downloaded</p>
+        <p class="gate__body">
+          Apple has not notarized this build, so macOS cannot vouch for it. This
+          is the checksum of the file the release serves — compare it before you
+          open the disk image.
+        </p>
+        <pre class="gate__cmd"><code>shasum -a 256 ~/Downloads/Archboard_<span data-rel="version">0.1.0</span>_universal.dmg</code><button class="copy" type="button" data-copy="shasum -a 256 ~/Downloads/Archboard_0.1.0_universal.dmg">Copy</button></pre>
+        <p class="gate__sum"><code data-rel="sha256">25106c9ce311f8c9b7ca1d1de6ce4dab52e9da7cf47627fda416a4ecd56b2ec5</code></p>
       </div>
     </div>
   </section>

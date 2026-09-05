@@ -16,6 +16,7 @@
     node sync-release.mjs --write         rewrite index.html in place
 */
 
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -73,13 +74,30 @@ const url = asset.browser_download_url;
 // The whole point of the exercise: prove the button works before shipping it.
 // Anonymous, because that is how a visitor will ask for it — a token here
 // would happily confirm a file the public cannot reach.
-const probe = await fetch(url, { method: "GET", headers: { Range: "bytes=0-0" } });
-const reachable = probe.ok || probe.status === 206;
+//
+// The same request produces the checksum. Apple has not notarized this build,
+// so the digest is the only integrity signal a downloader has, and it must be
+// taken from the bytes the release actually serves rather than from a local
+// copy that may differ.
+const probe = await fetch(url);
+const reachable = probe.ok;
+let sha256 = "unknown";
+if (reachable) {
+  const bytes = Buffer.from(await probe.arrayBuffer());
+  if (bytes.length !== asset.size) {
+    fail(
+      "The download is not the size GitHub reports for it.",
+      `expected ${asset.size} bytes, received ${bytes.length}`,
+    );
+  }
+  sha256 = createHash("sha256").update(bytes).digest("hex");
+}
 
 console.log(`\n  repository  ${REPO}`);
 console.log(`  release     ${release.tag_name}${release.prerelease ? " (pre-release)" : ""}`);
 console.log(`  asset       ${asset.name}  ${size} MB`);
 console.log(`  public      ${reachable ? "yes" : `NO — HTTP ${probe.status}`}`);
+if (reachable) console.log(`  sha256      ${sha256}`);
 
 let html = await readFile(page, "utf8");
 const before = html;
@@ -88,7 +106,9 @@ html = html
   .replace(/(<span data-rel="version">)[^<]*(<\/span>)/g, `$1${version}$2`)
   .replace(/(<span data-rel="size">)[^<]*(<\/span>)/g, `$1${size}$2`)
   .replace(/(<a[^>]*\sdata-dl[^>]*\shref=")[^"]*(")/g, `$1${url}$2`)
-  .replace(/(<a[^>]*\shref=")[^"]*("[^>]*\sdata-dl)/g, `$1${url}$2`);
+  .replace(/(<a[^>]*\shref=")[^"]*("[^>]*\sdata-dl)/g, `$1${url}$2`)
+  .replace(/(<code data-rel="sha256">)[^<]*(<\/code>)/g, `$1${sha256}$2`)
+  .replace(/(data-copy="shasum -a 256 ~\/Downloads\/Archboard_)[^_]*(_universal\.dmg")/g, `$1${version}$2`);
 
 const drifted = html !== before;
 
