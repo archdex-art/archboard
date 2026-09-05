@@ -80,11 +80,17 @@ break the one rule the product is built on.
 Type follows the app's split: prose in IBM Plex Sans, anything a machine said in
 JetBrains Mono. Branches, paths, counts, versions and commands are machine text.
 
-The signature is the hero board. Ten real repositories, painting the way
-Archboard actually does — rows arrive from the database at once, then the git
-state resolves a beat later and the amber gutters snap in. A re-enactment
-rather than a screenshot, and the only animated thing on the page. Branch names
-are middle-truncated (`feat/c…onomics`) because that is what the app does.
+The signature is the hero board. Ten repositories, painting the way Archboard
+actually does — rows arrive from the database at once, then the git state
+resolves a beat later and the amber gutters snap in. A re-enactment rather than
+a screenshot, and the only animated thing on the page.
+
+The repositories are invented. The page was first built from the author's own
+board, which meant publishing the names of private work to anyone who visited;
+they are now plausible stand-ins. Everything else about them is faithful —
+branch names are middle-truncated (`feat/r…ipeline`) because that is what the
+app does, and the fuzzy match shown in the palette (`pxforge` finding
+`pixel-forge`) is a real match under the app's own rules, not a mock-up.
 
 The counter-case section is deliberate. If someone already knows which project
 they want, Raycast and `zoxide` are faster, and saying so is more persuasive
