@@ -44,17 +44,27 @@ jobs:
           # has a GUI session, so opt back in and keep the installer layout.
           TAURI_BUNDLER_DMG_IGNORE_CI: "true"
           #
-          # No Apple variables are set here on purpose. An unset repository
-          # secret still defines the environment variable, as an empty string,
-          # and Tauri reads "APPLE_CERTIFICATE exists" as "import this
-          # certificate" — then fails the whole build on `security import`.
-          # Passing nothing is what produces the ad-hoc signature this release
-          # is meant to have.
+          # Ad-hoc signing, explicitly. Without this Tauri never runs codesign
+          # and the app ships with only the signature the linker applies
+          # automatically — identifier `archboard-<hash>`, flag
+          # `linker-signed`, and no designated requirement. macOS keys folder
+          # permissions to the signing identity, so with nothing stable to key
+          # to it re-asks for Desktop access on every single launch.
           #
-          # To sign and notarize instead, add APPLE_CERTIFICATE,
-          # APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID,
-          # APPLE_PASSWORD and APPLE_TEAM_ID as secrets, then list them here.
-          # Add them only once they all have real values.
+          # `-` is codesign's ad-hoc identity. It costs nothing, needs no
+          # certificate, and produces `com.archboard.desktop` with a real
+          # designated requirement, which is all TCC needs to remember a grant.
+          APPLE_SIGNING_IDENTITY: "-"
+          #
+          # APPLE_CERTIFICATE is deliberately absent. An unset repository
+          # secret still defines the variable as an empty string, and Tauri
+          # reads "it exists" as "import this certificate", then fails the
+          # build on `security import`.
+          #
+          # To sign with a Developer ID and notarize, add APPLE_CERTIFICATE,
+          # APPLE_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_PASSWORD and
+          # APPLE_TEAM_ID as secrets and list them here — only once they all
+          # have real values.
         with:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: Archboard ${{ github.event.inputs.tag || github.ref_name }}
