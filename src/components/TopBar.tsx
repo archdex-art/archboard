@@ -65,12 +65,33 @@ export function TopBar({
   });
 
   return (
-    <header className="drag-region flex h-[46px] shrink-0 items-center gap-2 border-b border-line bg-canvas pl-[84px] pr-3">
+    /*
+      Three tracks rather than a flex row, so the field sits on the window's
+      centre line instead of wherever the content before it happens to end.
+
+      Two things have to hold for that to be true at every size.
+
+      The padding is symmetric. With padding on one side only the tracks
+      centre on the content box rather than the window, which put the field
+      six pixels left at every width — small, but wrong everywhere.
+
+      The field yields before the layout does. The outer tracks are equal
+      `1fr`, which is what actually centres the middle, but the right one
+      cannot shrink past the buttons it holds. Below roughly 950px there is no
+      longer room for 380px between two 268px clusters, and something has to
+      give: either the field keeps its width and drifts off centre, or it
+      narrows and stays put. `min()` chooses the second. 576px is the space
+      the two clusters, the gaps and the padding need.
+    */
+    <header className="drag-region grid h-[46px] shrink-0 grid-cols-[minmax(72px,1fr)_min(380px,calc(100vw-576px))_minmax(max-content,1fr)] items-center gap-2 border-b border-line bg-canvas px-3">
       {/* The interface carries no visible title, but the document needs one
-          top-level heading, and the banner landmark is where it belongs. */}
+          top-level heading, and the banner landmark is where it belongs.
+          `sr-only` is absolutely positioned, so it claims no grid cell. */}
       <h1 className="sr-only">Archboard — developer project dashboard</h1>
 
-      <div className="no-drag relative w-full max-w-[380px]">
+      <div aria-hidden="true" />
+
+      <div className="no-drag relative w-full">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
         <input
           ref={inputRef}
@@ -86,7 +107,7 @@ export function TopBar({
         </kbd>
       </div>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="flex items-center justify-end gap-1">
         <Menu>
           <MenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Sort projects" className="no-drag">

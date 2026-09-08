@@ -254,4 +254,26 @@ First run is `no projects and never onboarded` — not just the absent setting. 
 
 Commit/push/pull UI, branch management, diff viewer, Docker controls, build/run panes, hosting-provider APIs, cloud sync, team collaboration. Archboard's job ends the moment your editor opens; a launcher that grows a git client becomes a slow launcher and a bad git client.
 
+**The boundary is enforced by the hardening, not only by intention.** Every git
+call passes `-c core.sshCommand=` so a repository cannot name a program for git
+to execute during a network operation. An empty value is not a no-op: git tries
+to run it and dies.
+
+```
+$ git -c core.sshCommand= push --dry-run origin main
+error: cannot run : No such file or directory
+fatal: unable to fork
+```
+
+So fetch, pull and push do not merely go unimplemented — they cannot work as
+the code stands. Anyone adding them has to relax that control to a named binary
+(`-c core.sshCommand=ssh`), raise `GIT_TIMEOUT` well past the five seconds
+tuned for local status, and decide what a failed push leaves behind. That is a
+deliberate cost of entry, and it was weighed once: the answer was no. The app
+opens a terminal in the project in one click, and a terminal is already the
+best git client on the machine.
+
+The five subcommands it does run — `status`, `branch`, `log`, `remote`, `init`
+— are all local, so none of them is affected.
+
 Windows and Linux are not implemented. The seam exists — a `platform` column and OS specifics isolated behind `#[cfg]` in `launcher/` — and no stub files pretend otherwise.
