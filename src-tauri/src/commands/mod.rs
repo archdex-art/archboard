@@ -289,18 +289,43 @@ pub fn detect_launchers(db: State<'_, Db>) -> Result<Vec<Launcher>> {
     let keep: Vec<(&str, &str)> =
         found.iter().map(|l| (l.kind.as_str(), l.name.as_str())).collect();
     db::prune_detected(&conn, &keep)?;
-    // Seed sensible defaults the first time we find anything.
-    if db::get_setting(&conn, "default_ide_id")?.is_none() {
-        if let Some(first) = db::list_launchers(&conn, Some(LauncherKind::Ide))?.first() {
-            db::set_setting(&conn, "default_ide_id", &first.id.to_string())?;
-        }
-    }
-    if db::get_setting(&conn, "default_terminal_id")?.is_none() {
-        if let Some(first) = db::list_launchers(&conn, Some(LauncherKind::Terminal))?.first() {
-            db::set_setting(&conn, "default_terminal_id", &first.id.to_string())?;
-        }
-    }
+    // Seed a default the first time anything is found, and never afterwards —
+    // a later detection must not move a choice the user has made.
+    //
+    // The candidate comes from `found`, which is in catalog order, rather than
+    // from `list_launchers`, which sorts by name. Alphabetical means the
+    // default on a fresh install is decided by spelling: "Android Studio" or
+    // "Antigravity" would beat "Visual Studio Code" for someone who has never
+    // opened either. The catalog is ordered by how general-purpose an editor
+    // is, which is at least a reason.
+    seed_default(&conn, "default_ide_id", &found, LauncherKind::Ide)?;
+    seed_default(&conn, "default_terminal_id", &found, LauncherKind::Terminal)?;
     db::list_launchers(&conn, None)
+}
+
+/// Records a first-run default, if there is not one already.
+///
+/// `found` is in catalog order, so the first entry of the right kind is the
+/// most general-purpose one installed. The row id has to be looked up by name
+/// because `found` carries what was detected on disk, not what the database
+/// assigned.
+fn seed_default(
+    conn: &rusqlite::Connection,
+    key: &str,
+    found: &[Launcher],
+    kind: LauncherKind,
+) -> Result<()> {
+    if db::get_setting(conn, key)?.is_some() {
+        return Ok(());
+    }
+    let Some(preferred) = found.iter().find(|l| l.kind == kind) else {
+        return Ok(());
+    };
+    let stored = db::list_launchers(conn, Some(kind))?;
+    if let Some(row) = stored.iter().find(|l| l.name == preferred.name) {
+        db::set_setting(conn, key, &row.id.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

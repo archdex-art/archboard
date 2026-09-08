@@ -118,6 +118,16 @@ pub fn run() {
             commands::run_command,
             commands::launch_workspace,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running archboard");
+        .build(tauri::generate_context!())
+        .expect("error while building archboard")
+        .run(|app, event| {
+            // Closing the window hides it rather than quitting, which left the
+            // app reachable only from the menu bar or the global shortcut.
+            // Clicking it in the Dock, Finder or Spotlight sends Reopen, and
+            // with nothing listening the app looked launched-but-broken: a
+            // tray icon and no window, with no obvious way back.
+            if let tauri::RunEvent::Reopen { .. } = event {
+                window::present(app);
+            }
+        });
 }

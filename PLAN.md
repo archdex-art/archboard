@@ -197,6 +197,19 @@ There is no Apple Developer ID, so builds are ad-hoc signed (`codesign -s -`), w
 
 ---
 
+**Hiding has to have a way back that people will find.** The red button hides
+rather than quits, which is right for an app that lives in the menu bar — but
+for a long time nothing listened for `RunEvent::Reopen`, so clicking Archboard
+in the Dock, in Finder, or from Spotlight did nothing at all. The app looked
+launched and broken: a menu-bar icon, no window, and no obvious way back short
+of knowing the global shortcut.
+
+It presented as an intermittent "starts with a tray icon and no window", and it
+was misdiagnosed twice — once as a locked screen, once as restored geometry
+that fell outside the display. Both were real confounds during testing and
+neither was the cause. The cause was that the window was hidden and every
+ordinary way of asking for it back was ignored.
+
 ## 11. Accessibility
 
 Audited with axe-core against the built app, in both themes: **0 violations, 32 passes**.

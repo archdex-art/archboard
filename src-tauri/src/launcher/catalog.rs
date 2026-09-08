@@ -24,6 +24,12 @@ pub const CATALOG: &[Known] = &[
     Known { name: "VS Code Insiders", kind: LauncherKind::Ide, app_names: &["Visual Studio Code - Insiders"], shim: Some("code-insiders"), shim_args: OPEN_PATH },
     Known { name: "Cursor", kind: LauncherKind::Ide, app_names: &["Cursor"], shim: Some("cursor"), shim_args: OPEN_PATH },
     Known { name: "Windsurf", kind: LauncherKind::Ide, app_names: &["Windsurf", "Devin"], shim: Some("windsurf"), shim_args: OPEN_PATH },
+    // Google ships two bundles. Only "Antigravity IDE" is the editor: it is
+    // the Electron one, it declares 65 document types, and it carries a
+    // `bin/antigravity-ide` shim. Plain "Antigravity.app" is the agent
+    // surface, declares no document types, and must not be offered as a place
+    // to open a folder.
+    Known { name: "Antigravity", kind: LauncherKind::Ide, app_names: &["Antigravity IDE"], shim: Some("antigravity-ide"), shim_args: OPEN_PATH },
     Known { name: "Zed", kind: LauncherKind::Ide, app_names: &["Zed", "Zed Preview"], shim: Some("zed"), shim_args: OPEN_PATH },
     Known { name: "Sublime Text", kind: LauncherKind::Ide, app_names: &["Sublime Text"], shim: Some("subl"), shim_args: OPEN_PATH },
     Known { name: "Nova", kind: LauncherKind::Ide, app_names: &["Nova"], shim: Some("nova"), shim_args: OPEN_PATH },
@@ -60,3 +66,59 @@ pub const SHIM_DIRS: &[&str] = &[
     "/bin",
     "/opt/local/bin",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_two_entries_claim_the_same_bundle_name() {
+        // Detection matches on the bundle name, so a duplicate would make
+        // which launcher wins depend on catalog order.
+        let mut seen = std::collections::HashSet::new();
+        for entry in CATALOG {
+            for name in entry.app_names {
+                assert!(seen.insert(*name), "{name} is claimed by more than one entry");
+            }
+        }
+    }
+
+    #[test]
+    fn only_the_antigravity_editor_is_offered_as_an_editor() {
+        // Google ships "Antigravity IDE.app", the editor, and "Antigravity.app",
+        // the agent surface. Both are in /Applications on a machine with the
+        // product installed, and only the first can open a folder. Adding the
+        // bare name here would put a non-editor in the Open With menu.
+        let claimed: Vec<&str> =
+            CATALOG.iter().flat_map(|k| k.app_names.iter().copied()).collect();
+        assert!(claimed.contains(&"Antigravity IDE"));
+        assert!(
+            !claimed.contains(&"Antigravity"),
+            "Antigravity.app is the agent surface, not an editor"
+        );
+    }
+
+    #[test]
+    fn every_entry_can_be_launched_somehow() {
+        // A row with neither a bundle to find nor a shim to run could be
+        // detected but never opened.
+        for entry in CATALOG {
+            assert!(
+                !entry.app_names.is_empty() || entry.shim.is_some(),
+                "{} has no way to launch",
+                entry.name
+            );
+        }
+    }
+
+    #[test]
+    fn shim_arguments_place_the_path_exactly_once() {
+        for entry in CATALOG {
+            if entry.shim.is_none() {
+                continue;
+            }
+            let uses = entry.shim_args.iter().filter(|a| a.contains("{path}")).count();
+            assert_eq!(uses, 1, "{} must use {{path}} exactly once", entry.name);
+        }
+    }
+}
