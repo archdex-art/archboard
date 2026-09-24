@@ -120,14 +120,19 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building archboard")
-        .run(|app, event| {
+        .run(|_app, _event| {
             // Closing the window hides it rather than quitting, which left the
             // app reachable only from the menu bar or the global shortcut.
             // Clicking it in the Dock, Finder or Spotlight sends Reopen, and
             // with nothing listening the app looked launched-but-broken: a
             // tray icon and no window, with no obvious way back.
-            if let tauri::RunEvent::Reopen { .. } = event {
-                window::present(app);
+            //
+            // The variant is macOS-only — it is the Dock's "reopen" Apple
+            // event. Windows and Linux have no equivalent, and their window
+            // managers restore a hidden window through the tray icon instead.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                window::present(_app);
             }
         });
 }
