@@ -10,12 +10,47 @@ on:
         required: true
 
 jobs:
-  macos:
-    runs-on: macos-14
+  build:
+    # One job per platform, each producing its own installers and appending
+    # them to the same draft release. A host can only bundle for itself:
+    # Tauri's bundler shells out to platform tooling that does not exist
+    # elsewhere.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS
+            # One universal binary rather than two downloads.
+            args: --target universal-apple-darwin
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - os: ubuntu-24.04
+            label: Linux
+            args: ""
+            targets: ""
+          - os: windows-2022
+            label: Windows
+            args: ""
+            targets: ""
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -23,11 +58,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ matrix.targets }}
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.os }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -44,9 +80,9 @@ jobs:
           # has a GUI session, so opt back in and keep the installer layout.
           TAURI_BUNDLER_DMG_IGNORE_CI: "true"
           #
-          # Ad-hoc signing, explicitly. Without this Tauri never runs codesign
-          # and the app ships with only the signature the linker applies
-          # automatically — identifier `archboard-<hash>`, flag
+          # Ad-hoc signing, explicitly, and macOS-only. Without it Tauri never
+          # runs codesign and the app ships with only the signature the linker
+          # applies automatically — identifier `archboard-<hash>`, flag
           # `linker-signed`, and no designated requirement. macOS keys folder
           # permissions to the signing identity, so with nothing stable to key
           # to it re-asks for Desktop access on every single launch.
@@ -54,7 +90,9 @@ jobs:
           # `-` is codesign's ad-hoc identity. It costs nothing, needs no
           # certificate, and produces `com.archboard.desktop` with a real
           # designated requirement, which is all TCC needs to remember a grant.
-          APPLE_SIGNING_IDENTITY: "-"
+          # It is meaningless on the other platforms, so it is set only where
+          # it does something.
+          APPLE_SIGNING_IDENTITY: ${{ matrix.os == 'macos-14' && '-' || '' }}
           #
           # APPLE_CERTIFICATE is deliberately absent. An unset repository
           # secret still defines the variable as an empty string, and Tauri
@@ -69,12 +107,10 @@ jobs:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: Archboard ${{ github.event.inputs.tag || github.ref_name }}
           releaseBody: |
-            Universal macOS build (Apple Silicon and Intel), macOS 11 or later.
-
-            **This build is ad-hoc signed, not notarized**, so macOS will refuse
-            to open it on first launch.
-
-            The reliable way to allow it, on any macOS version:
+            ### macOS
+            One universal build, Apple Silicon and Intel, macOS 11 or later.
+            **Ad-hoc signed, not notarized**, so macOS refuses it on first
+            launch. Allow it once, with the app not running:
 
             ```sh
             xattr -dr com.apple.quarantine /Applications/Archboard.app
@@ -84,7 +120,16 @@ jobs:
             choose Open. That shortcut was removed in macOS 15; there, use the
             command above, or open System Settings › Privacy & Security and
             click "Open Anyway" after the first blocked attempt.
+
+            ### Windows
+            `.msi` or the `.exe` setup, both per-user. **Unsigned**, so
+            SmartScreen will warn: choose More info, then Run anyway.
+
+            ### Linux
+            `.deb` for Debian and Ubuntu, `.rpm` for Fedora, or the
+            `.AppImage`, which needs no install — `chmod +x` it and run it.
+            Requires a WebKitGTK 4.1 runtime, which the `.deb` and `.rpm`
+            declare as a dependency.
           releaseDraft: true
           prerelease: false
-          # One universal binary rather than two downloads.
-          args: --target universal-apple-darwin
+          args: ${{ matrix.args }}
