@@ -348,6 +348,7 @@ pub async fn branches(path: &str) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
     #[test]
@@ -372,6 +373,10 @@ mod tests {
     /// A repository is untrusted input: it ships its own `.git/config`, and
     /// several git settings name a program to execute. This drives the real
     /// `git` binary against a repo that tries to run one.
+    // The payload is a shell script made executable with chmod, which has no
+    // Windows equivalent. The hardening it exercises is passed on every
+    // platform; only this way of proving it is POSIX-shaped.
+    #[cfg(unix)]
     #[tokio::test]
     async fn a_repository_cannot_choose_a_program_for_us_to_run() {
         let root = std::env::temp_dir().join(format!("archboard-hostile-{}", std::process::id()));

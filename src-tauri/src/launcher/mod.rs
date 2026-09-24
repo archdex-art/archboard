@@ -51,7 +51,7 @@ fn bundle_id_of(_app: &Path) -> Option<String> {
 fn program_dirs() -> Vec<PathBuf> {
     ["LOCALAPPDATA", "ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"]
         .iter()
-        .filter_map(|k| std::env::var_os(k))
+        .filter_map(std::env::var_os)
         .flat_map(|root| {
             let root = PathBuf::from(root);
             [root.join("Programs"), root]

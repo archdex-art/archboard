@@ -243,12 +243,12 @@ fn script_argv(exec: &str, template: &[String], dir: &Path, script: &Path) -> Ve
             .and_then(|s| s.to_str())
             .unwrap_or_default()
             .to_ascii_lowercase();
-        return match stem.as_str() {
+        match stem.as_str() {
             "wt" => vec!["-d".into(), dir.to_string_lossy().into_owned(), script],
             "cmd" => vec!["/K".into(), script],
             "pwsh" | "powershell" => vec!["-NoExit".into(), "-Command".into(), script],
             _ => vec![script],
-        };
+        }
     }
 
     #[cfg(not(target_os = "windows"))]
