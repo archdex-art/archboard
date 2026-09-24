@@ -10,7 +10,6 @@
 //! scripts would mean a repository could choose what runs on this machine.
 
 use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -75,7 +74,9 @@ fn sweep_stale() {
 /// closed, so this costs one extra click. Dropping it would remove the prompt
 /// but also close the window the instant a short command finished, taking its
 /// output with it — which is worse for `make test` than a confirmation is.
+#[cfg(not(target_os = "windows"))]
 fn write_script(dir: &Path, command: &str, marker: &Path) -> Result<PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
     let path = scratch_path("run").with_extension("command");
 
     let script = format!(
@@ -100,11 +101,50 @@ fn write_script(dir: &Path, command: &str, marker: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// The same contract for `cmd.exe`: change directory, prove it got that far,
+/// run the user's text, then leave an interactive shell behind.
+///
+/// There is no file mode to set. The temp directory is already per-user on
+/// Windows, which is the protection the `0700` provides elsewhere.
+#[cfg(target_os = "windows")]
+fn write_script(dir: &Path, command: &str, marker: &Path) -> Result<PathBuf> {
+    let path = scratch_path("run").with_extension("cmd");
+
+    let script = format!(
+        "@echo off\r\n\
+         cd /d {dir} || exit /b 1\r\n\
+         type nul > {marker}\r\n\
+         cls\r\n\
+         {command}\r\n\
+         cmd /k\r\n",
+        marker = cmd_quote(&marker.to_string_lossy()),
+        dir = cmd_quote(&dir.to_string_lossy()),
+        command = command,
+    );
+
+    let mut file = std::fs::File::create(&path)?;
+    file.write_all(script.as_bytes())?;
+    Ok(path)
+}
+
 /// Single-quotes a value for `sh`. Only the path is quoted — the command is
 /// the user's own text and is passed through verbatim, exactly as if they had
 /// typed it at their prompt.
+#[cfg(not(target_os = "windows"))]
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', r"'\''"))
+}
+
+/// Double-quotes a value for `cmd.exe`.
+///
+/// `cmd` has no escape for a quote inside a quoted string, so a path
+/// containing one cannot be represented and is refused rather than guessed
+/// at. Windows forbids `"` in file names, so this is unreachable in practice
+/// and present so that it cannot become an injection if that ever changes.
+#[cfg(target_os = "windows")]
+fn cmd_quote(value: &str) -> String {
+    debug_assert!(!value.contains('"'), "path contains a quote cmd cannot express");
+    format!("\"{}\"", value.replace('"', ""))
 }
 
 /// Runs `command` inside `dir` using `terminal`.
@@ -133,14 +173,7 @@ pub fn run(terminal: &Launcher, dir: &Path, command: &str) -> Result<()> {
                 .as_deref()
                 .and_then(|a| serde_json::from_str::<Vec<String>>(a).ok())
                 .unwrap_or_default();
-            // Reuse the launcher's own argument shape, swapping the directory
-            // template for the script we want executed.
-            let mut args: Vec<String> = template
-                .iter()
-                .map(|a| a.replace("{path}", &dir.to_string_lossy()))
-                .collect();
-            args.push("-e".into());
-            args.push(script.to_string_lossy().into_owned());
+            let args = script_argv(exec, &template, dir, &script);
 
             Command::new(exec)
                 .args(&args)
@@ -151,31 +184,84 @@ pub fn run(terminal: &Launcher, dir: &Path, command: &str) -> Result<()> {
                 .spawn()
                 .map_err(|e| AppError::new(Code::LauncherMissing, e.to_string()))?;
             // `spawn` only proves a process started. A terminal that does not
-            // understand `-e` opens a window and ignores the script, which is
-            // the exact silent no-op the marker exists to catch — so this path
-            // waits for the same evidence the bundle path does.
+            // understand the argument shape opens a window and ignores the
+            // script, which is the exact silent no-op the marker exists to
+            // catch — so this path waits for evidence like the other one does.
             return await_proof(&marker, terminal);
         }
     }
 
-    // Otherwise hand the script to the terminal application. Terminal.app
-    // executes `.command` files; some terminals only open them.
-    let bundle_id = terminal.bundle_id.as_deref().ok_or_else(|| {
-        AppError::new(Code::LauncherMissing, format!("{} cannot run commands.", terminal.name))
-            .action("open_settings", "terminals")
-    })?;
+    // Otherwise hand the script to the terminal application. This is the macOS
+    // route: Terminal.app executes `.command` files, some terminals only open
+    // them, and there is no equivalent elsewhere.
+    #[cfg(target_os = "macos")]
+    {
+        let bundle_id = terminal.bundle_id.as_deref().ok_or_else(|| {
+            AppError::new(Code::LauncherMissing, format!("{} cannot run commands.", terminal.name))
+                .action("open_settings", "terminals")
+        })?;
 
-    Command::new("/usr/bin/open")
-        .arg("-b")
-        .arg(bundle_id)
-        .arg(&script)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|e| AppError::new(Code::Io, e.to_string()))?;
+        Command::new("/usr/bin/open")
+            .arg("-b")
+            .arg(bundle_id)
+            .arg(&script)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map_err(|e| AppError::new(Code::Io, e.to_string()))?;
 
-    await_proof(&marker, terminal)
+        await_proof(&marker, terminal)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        std::fs::remove_file(&script).ok();
+        Err(AppError::new(
+            Code::LauncherMissing,
+            format!("{} cannot run commands.", terminal.name),
+        )
+        .hint("Archboard needs a terminal it can start from the command line. Choose a different one in Settings.")
+        .action("open_settings", "terminals"))
+    }
+}
+
+/// Builds the argument list that makes `exec` run `script`.
+///
+/// Unix terminals converge on `-e <command>` after their own options. Windows
+/// terminals do not agree with each other at all, and the script changes
+/// directory itself, so the working-directory template is only useful to the
+/// ones that accept it.
+fn script_argv(exec: &str, template: &[String], dir: &Path, script: &Path) -> Vec<String> {
+    let script = script.to_string_lossy().into_owned();
+
+    #[cfg(target_os = "windows")]
+    {
+        let _ = template;
+        let stem = Path::new(exec)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        return match stem.as_str() {
+            "wt" => vec!["-d".into(), dir.to_string_lossy().into_owned(), script],
+            "cmd" => vec!["/K".into(), script],
+            "pwsh" | "powershell" => vec!["-NoExit".into(), "-Command".into(), script],
+            _ => vec![script],
+        };
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = exec;
+        // Reuse the launcher's own argument shape, swapping the directory
+        // template for the script we want executed.
+        let mut args: Vec<String> =
+            template.iter().map(|a| a.replace("{path}", &dir.to_string_lossy())).collect();
+        args.push("-e".into());
+        args.push(script);
+        args
+    }
 }
 
 /// Waits for the script's own evidence that it started.
@@ -241,6 +327,7 @@ mod tests {
         std::fs::remove_file(live).ok();
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn quotes_paths_so_a_space_or_quote_cannot_break_out() {
         assert_eq!(shell_quote("/tmp/plain"), "'/tmp/plain'");
@@ -250,6 +337,7 @@ mod tests {
         assert_eq!(shell_quote("/tmp/$(whoami)"), "'/tmp/$(whoami)'");
     }
 
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn the_script_cds_before_running_and_survives_afterwards() {
         let dir = std::env::temp_dir();
@@ -263,6 +351,7 @@ mod tests {
         // Leaves the user at a prompt in the project rather than closing.
         assert!(body.contains("exec \"${SHELL:-/bin/sh}\" -l"));
         // Owner-only, because it is about to be executed.
+        use std::os::unix::fs::PermissionsExt;
         let mode = std::fs::metadata(&path).unwrap().permissions().mode();
         assert_eq!(mode & 0o777, 0o700);
         std::fs::remove_file(&path).ok();

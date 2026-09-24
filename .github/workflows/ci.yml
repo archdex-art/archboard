@@ -12,11 +12,39 @@ concurrency:
 
 jobs:
   check:
-    # macOS is the only supported target, and the Tauri crate needs a webview
-    # toolchain to compile at all, so there is nothing useful to run on Linux.
-    runs-on: macos-14
+    # Every supported platform compiles and runs the suite natively. Cross
+    # checking from one host is not an option: libsqlite3-sys builds C, so a
+    # target without its toolchain fails in the build script rather than in
+    # anything that would tell us about this code.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS
+          - os: ubuntu-24.04
+            label: Linux
+          - os: windows-2022
+            label: Windows
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      # Tauri links against the system webview and its GTK stack. Without
+      # these the Rust crate does not compile at all on Linux.
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -29,11 +57,15 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.os }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # The frontend is identical everywhere, so it is checked once rather
+      # than three times.
       - name: Typecheck and test the frontend
+        if: matrix.os == 'macos-14'
         run: bun run check
 
       - name: Lint the backend

@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 
 use crate::db::models::{Launcher, LauncherKind};
 use crate::error::{AppError, Code, Result};
-use catalog::{CATALOG, SHIM_DIRS};
+use catalog::{CATALOG, EXE_SUFFIXES, SHIM_DIRS};
 
 /// Directories searched for installed applications, in priority order.
 #[cfg(target_os = "macos")]
@@ -18,8 +18,6 @@ fn app_dirs() -> Vec<PathBuf> {
     ];
     if let Some(home) = dirs::home_dir() {
         dirs.push(home.join("Applications"));
-        // JetBrains Toolbox keeps its IDEs here.
-        dirs.push(home.join("Applications/JetBrains Toolbox"));
     }
     dirs
 }
@@ -34,7 +32,8 @@ fn app_dirs() -> Vec<PathBuf> {
 #[cfg(target_os = "macos")]
 fn bundle_id_of(app: &Path) -> Option<String> {
     let plist = plist::Value::from_file(app.join("Contents/Info.plist")).ok()?;
-    plist.as_dictionary()?.get("CFBundleIdentifier")?.as_string().map(str::to_string)
+    let dict = plist.as_dictionary()?;
+    dict.get("CFBundleIdentifier")?.as_string().map(str::to_string)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -42,8 +41,89 @@ fn bundle_id_of(_app: &Path) -> Option<String> {
     None
 }
 
+/// Directories that hold installed programs on Windows.
+///
+/// Resolved from the environment rather than hardcoded: these are localised,
+/// they move with the installation drive, and per-user installs (which is how
+/// VS Code and the JetBrains Toolbox install by default) live somewhere else
+/// entirely from machine-wide ones.
+#[cfg(target_os = "windows")]
+fn program_dirs() -> Vec<PathBuf> {
+    ["LOCALAPPDATA", "ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"]
+        .iter()
+        .filter_map(|k| std::env::var_os(k))
+        .flat_map(|root| {
+            let root = PathBuf::from(root);
+            [root.join("Programs"), root]
+        })
+        .filter(|p| p.is_dir())
+        .collect()
+}
+
+/// Every directory on `PATH`, which is where Linux package managers put
+/// command-line entry points and where Windows resolves bare commands.
+fn path_dirs() -> Vec<PathBuf> {
+    std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).collect())
+        .unwrap_or_default()
+}
+
+/// Resolves a command name to an absolute path, trying each platform suffix.
 fn find_shim(name: &str) -> Option<String> {
-    SHIM_DIRS.iter().map(|d| Path::new(d).join(name)).find(|p| p.is_file()).map(|p| p.to_string_lossy().into_owned())
+    let mut roots: Vec<PathBuf> = SHIM_DIRS.iter().map(PathBuf::from).collect();
+    roots.extend(path_dirs());
+    for dir in roots {
+        for suffix in EXE_SUFFIXES {
+            let candidate = dir.join(format!("{name}{suffix}"));
+            if candidate.is_file() {
+                return Some(candidate.to_string_lossy().into_owned());
+            }
+        }
+    }
+    None
+}
+
+/// Finds a Windows executable by name under the program directories.
+///
+/// Installers nest inconsistently — `Microsoft VS Code\Code.exe`,
+/// `cursor\Cursor.exe`, `JetBrains\IntelliJ IDEA\bin\idea64.exe` — so this
+/// walks a bounded depth rather than guessing each vendor's layout.
+#[cfg(target_os = "windows")]
+fn find_program(names: &[&str]) -> Option<String> {
+    fn walk(dir: &Path, names: &[&str], depth: u8) -> Option<PathBuf> {
+        let entries = std::fs::read_dir(dir).ok()?;
+        let mut subdirs = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if depth > 0 {
+                    subdirs.push(path);
+                }
+                continue;
+            }
+            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+            let ext = path.extension().and_then(|s| s.to_str()).unwrap_or_default();
+            if ext.eq_ignore_ascii_case("exe")
+                && names.iter().any(|n| n.eq_ignore_ascii_case(stem))
+            {
+                return Some(path);
+            }
+        }
+        subdirs.iter().find_map(|d| walk(d, names, depth - 1))
+    }
+
+    if names.is_empty() {
+        return None;
+    }
+    program_dirs()
+        .iter()
+        .find_map(|root| walk(root, names, 3))
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn find_program(_names: &[&str]) -> Option<String> {
+    None
 }
 
 /// Scans the application directories once and returns everything recognised.
@@ -69,14 +149,21 @@ pub fn detect() -> Vec<Launcher> {
             .find_map(|n| installed.get(&n.to_ascii_lowercase()))
             .map(|p| p.as_path());
         let bundle_id = bundle.and_then(bundle_id_of);
-        let exec_path = known.shim.and_then(find_shim);
+        // A command on PATH is the usual handle on Linux and a fallback
+        // elsewhere; a program directory is where Windows installers put
+        // things that never go on PATH at all.
+        let exec_path = known.shim.and_then(find_shim).or_else(|| find_program(known.exe_names));
 
-        // An entry that ships as an application must have that application
-        // present. Apple leaves stubs like /usr/bin/xed on every Mac, and
-        // offering "Xcode" on a machine without Xcode is a promise we cannot
-        // keep. Shim-only entries (a CLI editor) are judged on the shim alone.
-        let installed_here =
-            if known.app_names.is_empty() { exec_path.is_some() } else { bundle_id.is_some() };
+        // Evidence of installation differs by platform, and each one has a way
+        // of lying. On macOS, Apple leaves stubs like /usr/bin/xed on every
+        // machine, so the bundle must exist — offering "Xcode" without Xcode
+        // is a promise we cannot keep. Elsewhere there is no bundle to check
+        // and a resolved executable is the whole of the evidence.
+        let installed_here = if cfg!(target_os = "macos") && !known.app_names.is_empty() {
+            bundle_id.is_some()
+        } else {
+            exec_path.is_some()
+        };
         if !installed_here {
             continue;
         }

@@ -29,13 +29,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "app",
-      "dmg"
-    ],
+    "targets": "all",
     "category": "DeveloperTool",
     "shortDescription": "Developer project dashboard",
-    "longDescription": "A dashboard for every code project on your Mac. See live git state and open a project's terminal, editor, folder or remote in one click.",
+    "longDescription": "A dashboard for every code project on your machine. See live git state and open a project's terminal, editor, folder or remote in one click.",
     "copyright": "MIT",
     "icon": [
       "icons/32x32.png",
@@ -60,6 +57,23 @@
           "x": 490,
           "y": 190
         }
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1"
+        ]
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "English"
+        ]
       }
     }
   }
