@@ -58,7 +58,7 @@
       </h1>
 
       <p class="hero__lede">
-        Archboard lists every git repository on your Mac and the state it is in.
+        Archboard lists every git repository on your machine and the state it is in.
         Amber means you left something uncommitted. Everything settled stays grey,
         so the unfinished work is the only thing that catches your eye.
       </p>
@@ -67,36 +67,48 @@
            loads — rows from the database first, git state a beat later. -->
       <figure class="window" id="board">
         <figcaption class="sr-only">
-          A board of ten repositories. Three have uncommitted changes and are
-          marked in amber; the remaining seven are clean.
+          An interactive example board of eight repositories. Three have
+          uncommitted changes and are marked in amber; the other five are
+          clean. Search it, or filter it with the controls beside it.
         </figcaption>
 
-        <div class="window__chrome" aria-hidden="true">
-          <span class="dot dot--close"></span>
-          <span class="dot dot--min"></span>
-          <span class="dot dot--zoom"></span>
-          <span class="window__search">Search projects, paths, branches, tags</span>
-          <span class="window__kbd">⌘K</span>
+        <div class="window__chrome">
+          <span class="dot dot--close" aria-hidden="true"></span>
+          <span class="dot dot--min" aria-hidden="true"></span>
+          <span class="dot dot--zoom" aria-hidden="true"></span>
+          <label class="sr-only" for="demo-search">Search the example projects</label>
+          <input
+            class="window__search"
+            id="demo-search"
+            type="search"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Search projects, paths, branches, tags" />
+          <span class="window__kbd" aria-hidden="true">⌘K</span>
         </div>
 
         <div class="window__body">
-          <aside class="rail" aria-hidden="true">
-            <p class="rail__head">Projects</p>
-            <span class="rail__item is-active">All projects <b>10</b></span>
-            <span class="rail__item">Favorites</span>
-            <span class="rail__item">Recently opened</span>
-            <span class="rail__item">Git repositories <b>10</b></span>
-            <span class="rail__item rail__item--signal">Uncommitted work <b>3</b></span>
-            <p class="rail__head">Stack</p>
-            <span class="rail__item">TypeScript <b>5</b></span>
-            <span class="rail__item">Rust <b>3</b></span>
-            <span class="rail__item">Python <b>2</b></span>
+          <aside class="rail" aria-label="Filter the example projects">
+            <p class="rail__head" id="rail-projects">Projects</p>
+            <div role="group" aria-labelledby="rail-projects">
+              <button class="rail__item is-active" type="button" data-filter="all" aria-pressed="true">All projects <b data-count="all">0</b></button>
+              <button class="rail__item" type="button" data-filter="favorites" aria-pressed="false">Favorites <b data-count="favorites">0</b></button>
+              <button class="rail__item" type="button" data-filter="recent" aria-pressed="false">Recently opened <b data-count="recent">0</b></button>
+              <button class="rail__item" type="button" data-filter="git" aria-pressed="false">Git repositories <b data-count="git">0</b></button>
+              <button class="rail__item rail__item--signal" type="button" data-filter="dirty" aria-pressed="false">Uncommitted work <b data-count="dirty">0</b></button>
+            </div>
+            <p class="rail__head" id="rail-stack">Stack</p>
+            <div role="group" aria-labelledby="rail-stack">
+              <button class="rail__item" type="button" data-filter="lang:TypeScript" aria-pressed="false">TypeScript <b data-count="lang:TypeScript">0</b></button>
+              <button class="rail__item" type="button" data-filter="lang:Rust" aria-pressed="false">Rust <b data-count="lang:Rust">0</b></button>
+              <button class="rail__item" type="button" data-filter="lang:Python" aria-pressed="false">Python <b data-count="lang:Python">0</b></button>
+            </div>
           </aside>
 
           <ol class="board" id="rows">
-            <li class="row" data-state="dirty">
+            <li class="row" data-state="dirty" data-lang="TypeScript" data-fav>
               <span class="row__gutter"></span>
-              <span class="row__name">pixel-forge
+              <span class="row__name"><span class="row__label">pixel-forge</span>
                 <span class="row__path">~/Projects/pixel-forge</span>
               </span>
               <span class="row__stack">TypeScript · React</span>
@@ -104,9 +116,9 @@
               <span class="row__count">6 changed</span>
               <span class="row__age">1mo</span>
             </li>
-            <li class="row" data-state="dirty">
+            <li class="row" data-state="dirty" data-lang="Rust" data-recent>
               <span class="row__gutter"></span>
-              <span class="row__name">harbor-api
+              <span class="row__name"><span class="row__label">harbor-api</span>
                 <span class="row__path">~/Projects/harbor-api</span>
               </span>
               <span class="row__stack">Rust · Axum</span>
@@ -114,9 +126,9 @@
               <span class="row__count">11 changed</span>
               <span class="row__age">5d</span>
             </li>
-            <li class="row" data-state="dirty">
+            <li class="row" data-state="dirty" data-lang="TypeScript">
               <span class="row__gutter"></span>
-              <span class="row__name">lumen-site
+              <span class="row__name"><span class="row__label">lumen-site</span>
                 <span class="row__path">~/Projects/lumen-site</span>
               </span>
               <span class="row__stack">TypeScript · Next.js</span>
@@ -124,9 +136,9 @@
               <span class="row__count">9 changed</span>
               <span class="row__age">1mo</span>
             </li>
-            <li class="row">
+            <li class="row" data-lang="Rust" data-fav data-recent>
               <span class="row__gutter"></span>
-              <span class="row__name">quartz-engine
+              <span class="row__name"><span class="row__label">quartz-engine</span>
                 <span class="row__path">~/Projects/quartz-engine</span>
               </span>
               <span class="row__stack">Rust · Tauri</span>
@@ -134,9 +146,9 @@
               <span class="row__count row__count--clean">clean</span>
               <span class="row__age">3d</span>
             </li>
-            <li class="row">
+            <li class="row" data-lang="Python">
               <span class="row__gutter"></span>
-              <span class="row__name">otter-notes
+              <span class="row__name"><span class="row__label">otter-notes</span>
                 <span class="row__path">~/Projects/otter-notes</span>
               </span>
               <span class="row__stack">Python · FastAPI</span>
@@ -144,9 +156,9 @@
               <span class="row__count row__count--clean">clean</span>
               <span class="row__age">1mo</span>
             </li>
-            <li class="row">
+            <li class="row" data-lang="TypeScript" data-recent>
               <span class="row__gutter"></span>
-              <span class="row__name">beacon-cli
+              <span class="row__name"><span class="row__label">beacon-cli</span>
                 <span class="row__path">~/Projects/beacon-cli</span>
               </span>
               <span class="row__stack">TypeScript</span>
@@ -154,9 +166,9 @@
               <span class="row__count row__count--clean">clean</span>
               <span class="row__age">2w</span>
             </li>
-            <li class="row">
+            <li class="row" data-lang="Rust">
               <span class="row__gutter"></span>
-              <span class="row__name">slate-editor
+              <span class="row__name"><span class="row__label">slate-editor</span>
                 <span class="row__path">~/Projects/slate-editor</span>
               </span>
               <span class="row__stack">Rust · Tauri</span>
@@ -164,9 +176,9 @@
               <span class="row__count row__count--clean">clean</span>
               <span class="row__age">1mo</span>
             </li>
-            <li class="row">
+            <li class="row" data-lang="TypeScript">
               <span class="row__gutter"></span>
-              <span class="row__name">atlas-docs
+              <span class="row__name"><span class="row__label">atlas-docs</span>
                 <span class="row__path">~/Projects/atlas-docs</span>
               </span>
               <span class="row__stack">TypeScript</span>

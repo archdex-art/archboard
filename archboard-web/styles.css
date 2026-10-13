@@ -241,6 +241,20 @@ body {
   font-size: 12.5px;
 }
 
+/* The search field is a real input now, so it needs the states one has. */
+.window__search {
+  font-family: inherit;
+  outline: none;
+  transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
+}
+.window__search::placeholder { color: var(--ink-faint); }
+.window__search:focus {
+  border-color: var(--line-strong);
+  background: var(--raised);
+  color: var(--ink);
+}
+.window__search::-webkit-search-cancel-button { display: none; }
+
 .window__kbd {
   font-family: var(--mono);
   font-size: 11px;
@@ -274,6 +288,18 @@ body {
   font-size: 12.5px;
   color: var(--ink-dim);
 }
+/* Rail entries are buttons, so they reset the control styling and gain the
+   affordances a control needs. */
+.rail__item {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms var(--ease), color 120ms var(--ease);
+}
+.rail__item:hover { background: var(--panel); color: var(--ink); }
 .rail__item b { color: var(--ink-faint); font-weight: 400; }
 .rail__item.is-active { background: var(--raised); color: var(--ink); }
 .rail__item--signal b { color: var(--signal); }
@@ -297,6 +323,21 @@ body {
   border-radius: 8px;
 }
 .row:hover { background: var(--panel); }
+.row { cursor: default; }
+.row[hidden] { display: none; }
+
+/* The cursor, matching the app: a quiet raised surface, not a colour. State
+   colour stays reserved for what the repository is doing. */
+.row.is-selected { background: var(--raised); }
+
+/* An empty result is a sentence, not a blank panel. */
+.board[data-empty="true"]::after {
+  content: "Nothing matches that.";
+  display: block;
+  padding: 26px 14px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
 
 /* The gutter: the product's whole idea, one element wide. */
 .row__gutter {
@@ -609,6 +650,11 @@ kbd {
 .palette__name { font-size: 13.5px; font-weight: 500; }
 /* The matched characters, exactly as the app highlights them. */
 .palette__name b { color: var(--signal); font-weight: 600; }
+
+/* The characters a query actually matched, in the board as in the palette.
+   This is the one place amber is not about repository state: it marks what
+   the machine found, which is the same job the palette's highlight does. */
+.row__label b { color: var(--signal); font-weight: 600; }
 
 .palette__path {
   font-family: var(--mono);
