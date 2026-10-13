@@ -139,24 +139,32 @@ jobs:
       # `libappindicator3-1` among its dependencies, which Ubuntu dropped
       # after 22.04, so this proves the list actually resolves on the
       # distribution the deb is built against.
+      #
+      # The artifacts are located rather than assumed: the bundle directory
+      # moves with the target triple, and guessing it made this step fail on
+      # its own path instead of on anything about the package.
       - name: Prove the Linux packages install
         if: matrix.os == 'ubuntu-24.04'
         run: |
-          deb=$(find src-tauri/target/release/bundle/deb -name '*.deb' | head -1)
+          set -euo pipefail
+          deb=$(find src-tauri/target -name '*.deb' -print -quit)
+          test -n "$deb" || { echo "::error::no .deb was produced"; find src-tauri/target -name 'bundle' -type d; exit 1; }
           echo "Installing $deb"
           sudo apt-get update
-          sudo apt-get install -y "$deb"
-          test -x /usr/bin/archboard
-          echo "installed, binary present"
+          sudo apt-get install -y "./$deb"
+          command -v archboard
           sudo apt-get remove -y archboard
+          echo "deb installs and its dependencies resolve"
 
-      - name: Prove the AppImage is runnable
+      - name: Prove the AppImage carries the application
         if: matrix.os == 'ubuntu-24.04'
         run: |
-          img=$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)
+          set -euo pipefail
+          img=$(find src-tauri/target -name '*.AppImage' -print -quit)
+          test -n "$img" || { echo "::error::no AppImage was produced"; exit 1; }
           chmod +x "$img"
           # --appimage-extract needs no FUSE and no display, so it is the one
-          # check a headless runner can actually make.
+          # check a headless runner can honestly make.
           "$img" --appimage-extract >/dev/null
           test -x squashfs-root/usr/bin/archboard
           echo "AppImage unpacks and carries the binary"
