@@ -133,3 +133,30 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      # A package that cannot be installed is worse than no package: the user
+      # has already downloaded it before anything tells them. Tauri emits
+      # `libappindicator3-1` among its dependencies, which Ubuntu dropped
+      # after 22.04, so this proves the list actually resolves on the
+      # distribution the deb is built against.
+      - name: Prove the Linux packages install
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          deb=$(find src-tauri/target/release/bundle/deb -name '*.deb' | head -1)
+          echo "Installing $deb"
+          sudo apt-get update
+          sudo apt-get install -y "$deb"
+          test -x /usr/bin/archboard
+          echo "installed, binary present"
+          sudo apt-get remove -y archboard
+
+      - name: Prove the AppImage is runnable
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          img=$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)
+          chmod +x "$img"
+          # --appimage-extract needs no FUSE and no display, so it is the one
+          # check a headless runner can actually make.
+          "$img" --appimage-extract >/dev/null
+          test -x squashfs-root/usr/bin/archboard
+          echo "AppImage unpacks and carries the binary"
