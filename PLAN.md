@@ -289,4 +289,32 @@ best git client on the machine.
 The five subcommands it does run — `status`, `branch`, `log`, `remote`, `init`
 — are all local, so none of them is affected.
 
-Windows and Linux are not implemented. The seam exists — a `platform` column and OS specifics isolated behind `#[cfg]` in `launcher/` — and no stub files pretend otherwise.
+Windows and Linux are implemented, and what that cost is worth recording,
+because the seam was narrower than the differences it had to hide.
+
+Discovery was the hard part. The platforms disagree about what an installed
+application *is*. macOS ships a bundle, so a `.app` name is matched and the
+real identifier read out of `Info.plist`. Windows ships an executable in a
+program directory that is localised, moves with the drive, and is per-user for
+the installers most editors use — so those roots come from the environment and
+are walked to a bounded depth, rather than each vendor's nesting being guessed
+at. Linux ships a command on `PATH`, so the command name is the handle, with
+the snap and flatpak export directories included because that is where those
+put their wrappers.
+
+The evidence of installation had to become platform-specific too. On macOS a
+bundle must exist, because Apple leaves stubs like `/usr/bin/xed` on every
+machine and offering Xcode without Xcode is a promise we cannot keep.
+Elsewhere there is no bundle and a resolved executable is the whole of it.
+
+Terminals do not agree on how to be handed a script. `-e` is a Unix
+convention; `wt` takes `-d` then the command, `cmd` takes `/K`, PowerShell
+takes `-NoExit -Command`. That is now an explicit per-terminal decision rather
+than one convention applied hopefully to all of them.
+
+**What is verified, and what is not.** CI compiles and runs the whole suite
+natively on macOS, Ubuntu and Windows, and the release proves the Linux
+packages install on the runner and that the AppImage carries its binary. That
+is the honest extent of it. Nobody has watched the window open on Windows or
+Linux, and until someone has, "it builds and its logic holds" is the only
+claim being made.

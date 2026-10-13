@@ -2,33 +2,51 @@
 /*
   Keeps the download page truthful, and refuses to let it ship otherwise.
 
-  The page states a version, a file size and a download URL. Left to hand
-  editing those drift the moment a release is cut, and the failure is silent:
-  the page keeps advertising a build that no longer exists. This reads the
-  actual latest release, rewrites the three facts, and — the part that matters
-  — fails if the file it is about to advertise cannot be fetched.
+  The page states a version and, for each platform, a download URL, a file
+  size and a checksum. Left to hand editing those drift the moment a release
+  is cut, and the failure is silent: the page keeps advertising a build that
+  no longer exists. This reads the actual latest release, rewrites every one
+  of those facts, and — the part that matters — fails if any file it is about
+  to advertise cannot be fetched.
 
-  A landing page whose only job is handing over a binary has exactly one
+  A landing page whose only job is handing over binaries has exactly one
   unacceptable bug, which is a dead download button. This is the check for it.
+
+  Checksums come from the API's own `digest` field rather than from
+  downloading ninety megabytes of installers on every deploy. That field was
+  verified against a local `shasum -a 256` of the published file before being
+  trusted here.
 
   Usage:
     node sync-release.mjs                 verify only, report drift
     node sync-release.mjs --write         rewrite index.html in place
 */
 
-import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const REPO = process.env.ARCHBOARD_REPO ?? "archdex-art/archboard";
-const ASSET = /\.dmg$/;
 const here = dirname(fileURLToPath(import.meta.url));
 const page = join(here, "index.html");
-
 const write = process.argv.includes("--write");
 
-/** Bytes to the one-decimal megabytes the page displays. */
+/**
+ * The downloads the page offers, in the order it offers them.
+ *
+ * `.app.tar.gz` is deliberately absent: it is the updater artifact, not
+ * something a person should be handed.
+ */
+const WANTED = [
+  { id: "mac", label: "macOS", match: (n) => n.endsWith(".dmg") },
+  { id: "win", label: "Windows", match: (n) => n.endsWith("-setup.exe") },
+  { id: "msi", label: "Windows (MSI)", match: (n) => n.endsWith(".msi") },
+  { id: "deb", label: "Debian / Ubuntu", match: (n) => n.endsWith(".deb") },
+  { id: "rpm", label: "Fedora", match: (n) => n.endsWith(".rpm") },
+  { id: "appimage", label: "AppImage", match: (n) => n.endsWith(".AppImage") },
+];
+
+/** Bytes to the one-decimal megabytes the page displays, as Finder counts. */
 const megabytes = (bytes) => (bytes / 1_000_000).toFixed(1);
 
 function fail(message, detail) {
@@ -59,56 +77,53 @@ try {
   throw error;
 }
 
-const asset = (release.assets ?? []).find((a) => ASSET.test(a.name));
-if (!asset) {
-  fail(
-    `Release ${release.tag_name} has no .dmg asset.`,
-    `Assets present: ${(release.assets ?? []).map((a) => a.name).join(", ") || "none"}`,
-  );
-}
-
 const version = release.tag_name.replace(/^v/, "");
-const size = megabytes(asset.size);
-const url = asset.browser_download_url;
-
-// The whole point of the exercise: prove the button works before shipping it.
-// Anonymous, because that is how a visitor will ask for it — a token here
-// would happily confirm a file the public cannot reach.
-//
-// The same request produces the checksum. Apple has not notarized this build,
-// so the digest is the only integrity signal a downloader has, and it must be
-// taken from the bytes the release actually serves rather than from a local
-// copy that may differ.
-const probe = await fetch(url);
-const reachable = probe.ok;
-let sha256 = "unknown";
-if (reachable) {
-  const bytes = Buffer.from(await probe.arrayBuffer());
-  if (bytes.length !== asset.size) {
-    fail(
-      "The download is not the size GitHub reports for it.",
-      `expected ${asset.size} bytes, received ${bytes.length}`,
-    );
-  }
-  sha256 = createHash("sha256").update(bytes).digest("hex");
-}
+const assets = release.assets ?? [];
 
 console.log(`\n  repository  ${REPO}`);
 console.log(`  release     ${release.tag_name}${release.prerelease ? " (pre-release)" : ""}`);
-console.log(`  asset       ${asset.name}  ${size} MB`);
-console.log(`  public      ${reachable ? "yes" : `NO — HTTP ${probe.status}`}`);
-if (reachable) console.log(`  sha256      ${sha256}`);
+
+const resolved = [];
+for (const want of WANTED) {
+  const asset = assets.find((a) => want.match(a.name));
+  if (!asset) {
+    fail(
+      `Release ${release.tag_name} has no ${want.label} download.`,
+      `Assets present: ${assets.map((a) => a.name).join(", ") || "none"}`,
+    );
+  }
+  const digest = (asset.digest ?? "").replace(/^sha256:/, "");
+  if (!digest) {
+    fail(`GitHub published no checksum for ${asset.name}.`, "Nothing to show a downloader.");
+  }
+  resolved.push({ ...want, name: asset.name, size: megabytes(asset.size), url: asset.browser_download_url, sha: digest });
+}
+
+// The whole point of the exercise: prove each button works before shipping
+// it. Anonymous, because that is how a visitor will ask — a token here would
+// happily confirm a file the public cannot reach. One byte is enough to prove
+// the object is served; the checksum is the API's.
+let broken = 0;
+for (const r of resolved) {
+  const probe = await fetch(r.url, { method: "GET", headers: { Range: "bytes=0-0" } });
+  const ok = probe.ok || probe.status === 206;
+  if (!ok) broken += 1;
+  console.log(`  ${r.label.padEnd(16)} ${r.name.padEnd(34)} ${r.size.padStart(5)} MB  ${ok ? "ok" : `HTTP ${probe.status}`}`);
+}
 
 let html = await readFile(page, "utf8");
 const before = html;
 
-html = html
-  .replace(/(<span data-rel="version">)[^<]*(<\/span>)/g, `$1${version}$2`)
-  .replace(/(<span data-rel="size">)[^<]*(<\/span>)/g, `$1${size}$2`)
-  .replace(/(<a[^>]*\sdata-dl[^>]*\shref=")[^"]*(")/g, `$1${url}$2`)
-  .replace(/(<a[^>]*\shref=")[^"]*("[^>]*\sdata-dl)/g, `$1${url}$2`)
-  .replace(/(<code data-rel="sha256">)[^<]*(<\/code>)/g, `$1${sha256}$2`)
-  .replace(/(data-copy="shasum -a 256 ~\/Downloads\/Archboard_)[^_]*(_universal\.dmg")/g, `$1${version}$2`);
+html = html.replace(/(<span data-rel="version">)[^<]*(<\/span>)/g, `$1${version}$2`);
+for (const r of resolved) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  html = html
+    .replace(new RegExp(`(<a[^>]*\\sdata-dl="${esc(r.id)}"[^>]*\\shref=")[^"]*(")`, "g"), `$1${r.url}$2`)
+    .replace(new RegExp(`(<a[^>]*\\shref=")[^"]*("[^>]*\\sdata-dl="${esc(r.id)}")`, "g"), `$1${r.url}$2`)
+    .replace(new RegExp(`(<span data-size="${esc(r.id)}">)[^<]*(</span>)`, "g"), `$1${r.size}$2`)
+    .replace(new RegExp(`(<code data-sha="${esc(r.id)}">)[^<]*(</code>)`, "g"), `$1${r.sha}$2`)
+    .replace(new RegExp(`(<span data-file="${esc(r.id)}">)[^<]*(</span>)`, "g"), `$1${r.name}$2`);
+}
 
 const drifted = html !== before;
 
@@ -120,18 +135,15 @@ if (write) {
     console.log("  page        already current");
   }
 } else if (drifted) {
-  fail(
-    "index.html does not match the latest release.",
-    "Run: node archboard-web/sync-release.mjs --write",
-  );
+  fail("index.html does not match the latest release.", "Run: node archboard-web/sync-release.mjs --write");
 } else {
   console.log("  page        matches the release");
 }
 
-if (!reachable) {
+if (broken > 0) {
   fail(
-    "The download this page advertises is not publicly reachable.",
-    `${url}\n    Make the repository public, or publish the asset somewhere that is.`,
+    `${broken} of ${resolved.length} downloads this page advertises are not publicly reachable.`,
+    "Make the repository public, or publish the assets somewhere that is.",
   );
 }
 
